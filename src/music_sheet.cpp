@@ -1,6 +1,8 @@
 #include "music_sheet.hpp"
 
-music_sheet::music_sheet ():	
+using music::music_sheet;
+
+music_sheet::music_sheet ()	
 {
 	//lettura file
 
