@@ -1,92 +1,3 @@
-
-// #include <opencv2/imgcodecs.hpp>
-// #include <opencv2/highgui.hpp>
-// #include <opencv2/imgproc.hpp>
-// #include <vector>
-
-// using namespace cv;
-// using std::vector;
-
-// bool use_mask;
-// Mat img; Mat templ; Mat result;
-// const char* image_window = "Source Image";
-// const char* result_window = "Result window";
-// int match_method;
-// int max_Trackbar = 5;
-
-
-// void MatchingMethod( int, void* )
-// {
-//   Mat img_display;
-//   img.copyTo( img_display );
-//   int result_cols = img.cols - templ.cols + 1;
-//   int result_rows = img.rows - templ.rows + 1;
-//   result.create( result_rows, result_cols, CV_32FC1 );
-
-
-
-//   matchTemplate( img, templ, result, match_method);
-
-  
-//   normalize( result, result, 0, 1, NORM_MINMAX, -1, Mat() );
-  
-//   double minVal; double maxVal; Point minLoc; Point maxLoc;
-//   Point matchLoc;
-//   minMaxLoc( result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
-//   if( match_method  == TM_SQDIFF || match_method == TM_SQDIFF_NORMED )
-//     { matchLoc = minLoc; }
-//   else
-//     { matchLoc = maxLoc; }
-//   rectangle( img_display, matchLoc, Point( matchLoc.x + templ.cols , matchLoc.y + templ.rows ), Scalar::all(0), 2, 8, 0 );
-//   rectangle( result, matchLoc, Point( matchLoc.x + templ.cols , matchLoc.y + templ.rows ), Scalar::all(0), 2, 8, 0 );
-
-
-
-
-//   imshow( image_window, img_display );
-//   imshow( result_window, result );
-//   return;
-// }
-
-// int main()
-// {
-//     // Read the image as gray-scale
-// img = imread(samples::findFile("file/fra_martino.jpg"), IMREAD_COLOR);
-
-// templ = imread(samples::findFile("file/nota.jpg"), IMREAD_COLOR );
-// resize(templ, templ, Size(15,15));
-// // // Store the edges 
-// // Mat edges;
-// // // // Find the edges in the image using canny detector
-// // Canny(img, edges, 50, 200);
-// // // // Create a vector to store lines of the image
-// // vector<Vec4i> lines;
-// // vector<Vec3f> circles;
-// // // // Apply Hough Transform
-// // HoughLinesP(edges, lines, 1, CV_PI/180, 250, 10, 250);
-
-
-// // // // Draw lines on the image
-// // for (size_t i=0; i<lines.size(); i++) {
-// //     Vec4i l = lines[i];
-// //     //line(img, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0, 0, 255), 1);
-// // }
-
-// namedWindow( image_window, WINDOW_AUTOSIZE );
-//   namedWindow( result_window, WINDOW_AUTOSIZE );
-
-// const char* trackbar_label = "Method: \n 0: SQDIFF \n 1: SQDIFF NORMED \n 2: TM CCORR \n 3: TM CCORR NORMED \n 4: TM COEFF \n 5: TM COEFF NORMED";
-//   createTrackbar( trackbar_label, image_window, &match_method, max_Trackbar, MatchingMethod );
-
-//   MatchingMethod( 0, 0 );
-//   waitKey(0);
-
-// // Show result image
-// //imshow("Result Image", img);
-
-//     return 0;
-// }
-
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/objdetect.hpp> // For HoG.
@@ -117,23 +28,26 @@ float median(vector<float> &v)
     return v[n];
 }
 
-void horiz_projection(Mat& img, vector<int>& histo)
+//Horizontal projection
+void horizontal_projection(Mat& img, vector<int>& histo)
 {
-    //Mat proj = Mat::zeros(img.rows, img.cols, img.type());
     int count, i, j;
 
-    for(i=0; i < img.rows; i++) {   
-        for(count = 0, j=0; j < img.cols; j++) {
+    for(i = 0; i < img.rows; i++) 
+    {   
+        for(count = 0, j = 0; j < img.cols; j++) 
+        {
             count += (img.at<int>(i, j)) ? 0:1;
         }
 
         histo.push_back(count);
-        //line(proj, Point(0, i), Point(count, i), Scalar(0,0,0), 1, 4);
+        line(proj, Point(0, i), Point(count, i), Scalar(0,0,0), 1, 4);
     }
 
-    //imshow("proj", proj);
+    imshow("projection", proj);
 }
 
+//Vertical projection
 void vert_projection(Mat& img, vector<int>& histo)
 {
     Mat proj = Mat::zeros(img.rows, img.cols, img.type());
@@ -243,37 +157,38 @@ int main(int argc, char** argv)
 {
     const char* filename = argc >= 2 ? argv[1] : "test.jpg";
 
-    Mat c_src;      // Color source image.
-    Mat g_src;      // Grayscale source image.
-    Mat edges;      // Edge detected source image.
-
-    c_src = imread(filename, IMREAD_COLOR);
-
-    if(c_src.empty()) {
+    //Try to read the original colour source image.
+    Mat colour_src = imread(filename, IMREAD_COLOR);
+    if(colour_src.empty()) {
         help();
         cout << "can not open " << filename << endl;
         return -1;
     }
 
-    cvtColor(c_src, g_src, COLOR_RGB2GRAY);
-
-    Canny(g_src, edges, 50, 200, 3);
-
-    threshold(g_src, g_src, 200, 255, THRESH_TOZERO);
-
-    imshow("B&W", g_src);
-    vector<int> horiz_proj; 
+    //Converts the image from color version to black and white
+    Mat gray_src;
+    cvtColor(colour_src, gray_src, COLOR_RGB2GRAY);
+    //Stamps original b&w image
+    //imshow("B&W1", gray_src);
     
-    horiz_projection(g_src, horiz_proj);
+    //Applies a fixed-level threshold to each array element.
+    threshold(gray_src, gray_src, 200, 255, THRESH_TOZERO);
+
+    //Stamps modified b&w image
+    imshow("B&W", gray_src);
+
+    vector<int> horiz_proj; 
+    horizontal_projection(gray_src, horiz_proj);
 
     vector<int> staff_positions;
     vector<int> lines;
     int lines_sum = 0, n_lines = 0, last_line;
     int max = *std::max_element(horiz_proj.begin(), horiz_proj.end());
     std::sort(staff_positions.begin(), staff_positions.end());
-    for(int i = 0; i < horiz_proj.size(); i++) {
+    for(int i = 0; i < horiz_proj.size(); i++) 
+    {
         if(horiz_proj[i] > max/3.5) {
-            remove_staff(g_src, i); 
+            remove_staff(gray_src, i); 
             //cout << i << endl;
 
             if (n_lines == 0)
@@ -296,17 +211,17 @@ int main(int argc, char** argv)
                 n_lines = 0; 
 
                 //Fa vedere le linee trovate
-                //line(c_src, Point(0, lines.back()), Point(g_src.size().width, lines.back()), Scalar(0, 0, 255), 2);
+                //line(colour_src, Point(0, lines.back()), Point(gray_src.size().width, lines.back()), Scalar(0, 0, 255), 2);
             }
         }
     }
-    imshow("No Staff", g_src);
+    //imshow("No Staff", gray_src);
 
     //Linee rosse
-    //imshow("Lines", c_src);
+    //imshow("Lines", colour_src);
 
     vector<Rect> bboxes;
-    Mat bw_temp = g_src.clone();
+    Mat bw_temp = gray_src.clone();
     find_contours(thresh, bw_temp, bboxes);
 
     HOGDescriptor hog;
@@ -315,9 +230,9 @@ int main(int argc, char** argv)
 
     int i = 7;
     Mat img;
-    g_src(Rect(bboxes[i].x, bboxes[i].y, bboxes[i].width, bboxes[i].height)).copyTo(img);
+    gray_src(Rect(bboxes[i].x, bboxes[i].y, bboxes[i].width, bboxes[i].height)).copyTo(img);
 
-    hog.compute(g_src , descriptorsValues, Size(0,0), Size(0,0), locations);
+    hog.compute(gray_src , descriptorsValues, Size(0,0), Size(0,0), locations);
     waitKey();
 
     cout << "HOG descriptor size is " << hog.getDescriptorSize() << endl;
@@ -327,7 +242,7 @@ int main(int argc, char** argv)
 /*
     for(int i = 0; i<bboxes.size(); i++) {
         if(bboxes[i].width * bboxes[i].height < 100) { continue; }
-        imshow("small", g_src(range(bboxes[i].y, bboxes[i].y+bboxes[i].height), range(bboxes[i].x, bboxes[i].x + bboxes[i].width)));    
+        imshow("small", gray_src(range(bboxes[i].y, bboxes[i].y+bboxes[i].height), range(bboxes[i].x, bboxes[i].x + bboxes[i].width)));    
         waitKey();
     }*/
     waitKey();
