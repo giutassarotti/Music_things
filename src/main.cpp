@@ -31,6 +31,7 @@ float median(vector<float> &v)
 //Horizontal projection
 void horizontal_projection(Mat& img, vector<int>& histo)
 {
+    Mat proj = Mat::zeros(img.rows, img.cols, img.type());
     int count, i, j;
 
     for(i = 0; i < img.rows; i++) 
@@ -41,10 +42,12 @@ void horizontal_projection(Mat& img, vector<int>& histo)
         }
 
         histo.push_back(count);
-        line(proj, Point(0, i), Point(count, i), Scalar(0,0,0), 1, 4);
+        //line(proj, Point(0, i), Point(count, i), Scalar(255,255,255), 1, 4);
     }
 
-    imshow("projection", proj);
+    //Shows the projection
+    //TODO usefull for a good image for presentation
+    //imshow("projection", proj);
 }
 
 //Vertical projection
@@ -175,54 +178,84 @@ int main(int argc, char** argv)
     threshold(gray_src, gray_src, 200, 255, THRESH_TOZERO);
 
     //Stamps modified b&w image
-    imshow("B&W", gray_src);
+    //imshow("Black and White with adjustments", gray_src);
 
+    //Projection for find staff's lines
     vector<int> horiz_proj; 
     horizontal_projection(gray_src, horiz_proj);
 
+    //Single lines' position (1 pixel)
     vector<int> staff_positions;
+    //The final lines
     vector<int> lines;
-    int lines_sum = 0, n_lines = 0, last_line;
-    int max = *std::max_element(horiz_proj.begin(), horiz_proj.end());
-    std::sort(staff_positions.begin(), staff_positions.end());
+
+    //Single line's pixel in the staff
+    int lines_pixel;
+
+    //Number of the single pixel lines that make one real line in the staff
+    int n_lines;
+
+    //Last single pixel line's pixel
+    int last_line;
+    
+    //The most length of the longest line
+    int max = *max_element(horiz_proj.begin(), horiz_proj.end());
+    
+    //I need the sort? It doesn't seem.
+    //sort(staff_positions.begin(), staff_positions.end());
+    
     for(int i = 0; i < horiz_proj.size(); i++) 
     {
-        if(horiz_proj[i] > max/3.5) {
-            remove_staff(gray_src, i); 
-            //cout << i << endl;
+        //One line is confirmed to be a line if it's at least the max line length/3.5
+        if(horiz_proj[i] > max/3.5) 
+        {
+            //Every line needs to be removed from the image
+            remove_staff(gray_src, i);
 
+            //If it's a new line
             if (n_lines == 0)
             {
-                lines_sum = i; 
+                lines_pixel = i; 
                 last_line = i;
                 n_lines = 1;
             }
 
-            if (abs(i - last_line) == 1)
+            //If the next pixel line is 1 pixel near
+            else if (abs(i - last_line) == 1)
             {
-                lines_sum += i;
+                lines_pixel += i;
                 last_line = i;
                 n_lines++;
             }
-            else if (i != last_line)
+
+            //If the line is finished
+            else
             {
-                lines.push_back(static_cast<int>(static_cast<double>(lines_sum)/n_lines));
-                cout << lines.back() << ' ' << n_lines << endl;
+                //Average pixel in a line (a line made of some pixel lines)
+                lines.push_back(static_cast<int>(static_cast<double>(lines_pixel)/n_lines));
+                
+                //Stamps the average line's pixel
+                //cout << lines.back() << ' ' << n_lines << endl;
+                
+                //Let's restart and find next line
                 n_lines = 0; 
 
-                //Fa vedere le linee trovate
-                //line(colour_src, Point(0, lines.back()), Point(gray_src.size().width, lines.back()), Scalar(0, 0, 255), 2);
+                //Creates the found line for the show (the red lines show)
+                Mat red_lines_src = colour_src.clone();
+                line(red_lines_src, Point(0, lines.back()), Point(gray_src.size().width, lines.back()), Scalar(0, 0, 255), 2);
             }
         }
     }
-    //imshow("No Staff", gray_src);
+    //Shows the image without lines
+    imshow("Without lines", gray_src);
 
-    //Linee rosse
-    //imshow("Lines", colour_src);
+    //Shows the found lines
+    imshow("Red Found Lines", red_lines_src);
 
-    vector<Rect> bboxes;
+    //Every figure will be in a rectangle (i'll call it boxe)
+    vector<Rect> boxes;
     Mat bw_temp = gray_src.clone();
-    find_contours(thresh, bw_temp, bboxes);
+    find_contours(thresh, bw_temp, boxes);
 
     HOGDescriptor hog;
     vector<float> descriptorsValues;
@@ -230,7 +263,7 @@ int main(int argc, char** argv)
 
     int i = 7;
     Mat img;
-    gray_src(Rect(bboxes[i].x, bboxes[i].y, bboxes[i].width, bboxes[i].height)).copyTo(img);
+    gray_src(Rect(boxes[i].x, boxes[i].y, boxes[i].width, boxes[i].height)).copyTo(img);
 
     hog.compute(gray_src , descriptorsValues, Size(0,0), Size(0,0), locations);
     waitKey();
