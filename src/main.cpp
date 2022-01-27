@@ -21,13 +21,6 @@ void help()
          << endl;
 }
 
-float median(vector<float> &v)
-{
-    size_t n = v.size() / 2;
-    nth_element(v.begin(), v.begin()+n, v.end());
-    return v[n];
-}
-
 //Horizontal projection
 void horizontal_projection(Mat& img, vector<int>& histo)
 {
@@ -47,7 +40,7 @@ void horizontal_projection(Mat& img, vector<int>& histo)
 
     //Shows the projection
     //TODO usefull for a good image for presentation
-    //imshow("projection", proj);
+    //imshow("o projection", proj);
 }
 
 //Vertical projection
@@ -56,18 +49,21 @@ void vert_projection(Mat& img, vector<int>& histo)
     Mat proj = Mat::zeros(img.rows, img.cols, img.type());
     int count, i, j, k;
 
-    for(i=0; i < img.cols; i++) {   
-        for(count = 0, j=0; j < img.rows; j++) {
-            for(k=0; k < img.channels(); k++) {
+    for(i=0; i < img.cols; i++) 
+    {   
+        for(count = 0, j=0; j < img.rows; j++) 
+        {
+            for(k=0; k < img.channels(); k++) 
+            {
                 count += (img.at<int>(j, i, k)) ? 0:1;
             }
         }
 
         histo.push_back(count);
-        //line(proj, Point(i, 0), Point(i, count/img.channels()), Scalar(0,0,0), 1, 4);
+        //line(proj, Point(i, 0), Point(i, count/img.channels()), Scalar(255,255,255), 1, 4);
     }
 
-    //imshow("proj", proj);
+    //imshow("v projection", proj);
 }
 
 //Removes the staff from the image (a single found pixel line)
