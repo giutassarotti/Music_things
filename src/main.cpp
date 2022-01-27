@@ -1,6 +1,5 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/objdetect.hpp> // For HoG.
 #include <opencv2/photo.hpp>
 
 #include <iostream>
@@ -12,6 +11,7 @@ using namespace std;
 
 RNG rng(12345);
 int thresh = 100;
+
 
 void help()
 { 
@@ -126,34 +126,40 @@ void remove_staff2(Mat& orig, Mat& img, int index)
     }
 }
 
-void find_contours(int t, Mat& threshold_output, vector<Rect>& boundRect)
+//Finds the figures and draw a rectangle on them
+void find_boxes(int t, Mat& threshold_output, vector<Rect>& boxes)
 {
-    vector<vector<Point> > contours;
-    vector<Vec4i> hierarchy;
+    //Finds contours
+    //This function finds contours in a binary image.
+    vector<vector<Point>> contours; //Each contour is stored as a vector of points
+    vector<Vec4i> hierarchy;        //Optional output vector containing information about the image topology.
+    findContours(threshold_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0));
 
-    // Find contours
-    findContours( threshold_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
+    //Input vector of a 2D point and the final boxes (resize after the contours function)
+    vector<vector<Point>> contours_boxes(contours.size());
+    boxes.resize(contours.size());
 
-    // Approximate contours to polygons + get bounding rects and circles
-    vector<vector<Point> > contours_poly( contours.size() );
-    vector<Point2f>center( contours.size() );
-    vector<float>radius( contours.size() );
-    boundRect.resize( contours.size() );
-
-    for( int i = 0; i < contours.size(); i++ ) { 
-        approxPolyDP( Mat(contours[i]), contours_poly[i], 3, true );
-        boundRect[i] = boundingRect( Mat(contours_poly[i]) );
+    for(int i=0; i<contours.size(); i++) 
+    { 
+        //approxPolyDP approximates a curve or a polygon with another curve/polygon with less vertices so that the distance between them is less or equal to the specified precision.
+        approxPolyDP(Mat(contours[i]), contours_boxes[i], 3, true);
+        //boundingRect returns the minimal up-right integer rectangle containing the rotated rectangle
+        boxes[i] = boundingRect(Mat(contours_boxes[i]));
     }
 
-    // Draw polygonal contour + bounding rects + circles
-    Mat drawing = Mat::zeros( threshold_output.size(), CV_8UC3 );
-    for( int i = 0; i < contours.size(); i++ ) {
-       Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-       drawContours( drawing, contours_poly, i, color, 1, 8, vector<Vec4i>(), 0, Point() );
-       rectangle( drawing, boundRect[i].tl(), boundRect[i].br(), color, 2, 8, 0 );
+    //The image with boxes
+    Mat boxes_img = Mat::zeros(threshold_output.size(), CV_8UC3);
+
+    for(int i=0; i<contours.size(); i++) 
+    {
+        //I need many colours for see the different boxes
+        Scalar colour = Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255));
+        drawContours(boxes_img, contours_boxes, i, colour, 1, 8, vector<Vec4i>(), 0, Point());
+        rectangle(boxes_img, boxes[i].tl(), boxes[i].br(), colour, 2, 8, 0);
     }
 
-    imshow( "Contours", drawing );
+    //Shows the image with boxes
+    imshow("Boxes", boxes_img);
 }
 
 int main(int argc, char** argv)
@@ -161,28 +167,31 @@ int main(int argc, char** argv)
     const char* filename = argc >= 2 ? argv[1] : "test.jpg";
 
     //Try to read the original colour source image.
-    Mat colour_src = imread(filename, IMREAD_COLOR);
-    if(colour_src.empty()) {
+    Mat colour_img = imread(filename, IMREAD_COLOR);
+    if(colour_img.empty()) {
         help();
         cout << "can not open " << filename << endl;
         return -1;
     }
 
     //Converts the image from color version to black and white
-    Mat gray_src;
-    cvtColor(colour_src, gray_src, COLOR_RGB2GRAY);
+    Mat gray_img;
+    cvtColor(colour_img, gray_img, COLOR_RGB2GRAY);
     //Stamps original b&w image
-    //imshow("B&W1", gray_src);
+    //imshow("B&W1", gray_img);
+
+    //I'll need a copy for a test (finding lines)
+    Mat red_lines_img = colour_img.clone();
     
     //Applies a fixed-level threshold to each array element.
-    threshold(gray_src, gray_src, 200, 255, THRESH_TOZERO);
+    threshold(gray_img, gray_img, 200, 255, THRESH_TOZERO);
 
     //Stamps modified b&w image
-    //imshow("Black and White with adjustments", gray_src);
+    //imshow("Black and White with adjustments", gray_img);
 
     //Projection for find staff's lines
     vector<int> horiz_proj; 
-    horizontal_projection(gray_src, horiz_proj);
+    horizontal_projection(gray_img, horiz_proj);
 
     //Single lines' position (1 pixel)
     vector<int> staff_positions;
@@ -201,16 +210,13 @@ int main(int argc, char** argv)
     //The most length of the longest line
     int max = *max_element(horiz_proj.begin(), horiz_proj.end());
     
-    //I need the sort? It doesn't seem.
-    //sort(staff_positions.begin(), staff_positions.end());
-    
     for(int i = 0; i < horiz_proj.size(); i++) 
     {
         //One line is confirmed to be a line if it's at least the max line length/3.5
         if(horiz_proj[i] > max/3.5) 
         {
             //Every line needs to be removed from the image
-            remove_staff(gray_src, i);
+            remove_staff(gray_img, i);
 
             //If it's a new line
             if (n_lines == 0)
@@ -241,45 +247,20 @@ int main(int argc, char** argv)
                 n_lines = 0; 
 
                 //Creates the found line for the show (the red lines show)
-                Mat red_lines_src = colour_src.clone();
-                line(red_lines_src, Point(0, lines.back()), Point(gray_src.size().width, lines.back()), Scalar(0, 0, 255), 2);
+                line(red_lines_img, Point(0, lines.back()), Point(gray_img.size().width, lines.back()), Scalar(0, 0, 255), 2);
             }
         }
     }
     //Shows the image without lines
-    imshow("Without lines", gray_src);
+    imshow("Without lines", gray_img);
 
-    //Shows the found lines
-    imshow("Red Found Lines", red_lines_src);
+    //Shows the found lines (in red)
+    //imshow("Red Found Lines", red_lines_img);
 
     //Every figure will be in a rectangle (i'll call it boxe)
     vector<Rect> boxes;
-    Mat bw_temp = gray_src.clone();
-    find_contours(thresh, bw_temp, boxes);
+    find_boxes(thresh, gray_img, boxes);
 
-    HOGDescriptor hog;
-    vector<float> descriptorsValues;
-    vector<Point> locations;
-
-    int i = 7;
-    Mat img;
-    gray_src(Rect(boxes[i].x, boxes[i].y, boxes[i].width, boxes[i].height)).copyTo(img);
-
-    hog.compute(gray_src , descriptorsValues, Size(0,0), Size(0,0), locations);
     waitKey();
-
-    cout << "HOG descriptor size is " << hog.getDescriptorSize() << endl;
-    cout << "img dimensions: " << img.cols << " width x " << img.rows << " height" << endl;
-    cout << "Found " << descriptorsValues.size() << " descriptor values" << endl;
-    cout << "Nr of locations specified : " << locations.size() << endl;
-/*
-    for(int i = 0; i<bboxes.size(); i++) {
-        if(bboxes[i].width * bboxes[i].height < 100) { continue; }
-        imshow("small", gray_src(range(bboxes[i].y, bboxes[i].y+bboxes[i].height), range(bboxes[i].x, bboxes[i].x + bboxes[i].width)));    
-        waitKey();
-    }*/
-    waitKey();
-
-
     return 0;
 }
