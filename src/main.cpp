@@ -70,57 +70,33 @@ void vert_projection(Mat& img, vector<int>& histo)
     //imshow("proj", proj);
 }
 
-void remove_staff(Mat& img, int index)
+//Removes the staff from the image (a single found pixel line)
+void remove_staff(Mat& img, int pixel)
 {
-    for(int x = 0; x < img.cols; x++) {
-        if(img.at<uchar>(index, x) == 0) { 
-            int sum = 0;
-            for(int y = -3; y <= 3; y++) {
-                if(index + y > 0 && index + y < img.rows) {
-                    sum += img.at<uchar>(index+y, x);                    
+    int sum;
+    //Parametres for understand who is the staff and who's not near that pixel
+    int n=3, m=1;
+    for(int i=0; i<img.cols; i++) 
+    {
+        if(img.at<uchar>(pixel, i) == 0) 
+        { 
+            sum = 0;
+            for(int y=-n; y<=n; y++) 
+            {
+                if(pixel + y > 0 && pixel + y < img.rows) 
+                {
+                    sum += img.at<uchar>(pixel+y, i);                    
                 }
-            } 
-            if(sum >1000) {
-                for(int y = -2; y <= 2; y++) {
-                    if(index + y > 0 && index + y < img.rows) {
-                        img.at<uchar>(index+y, x) = 255;
+            }
+            if(sum > 1000) 
+            {
+                for(int y=-m; y<=m; y++) 
+                {
+                    if(pixel + y > 0 && pixel + y < img.rows) 
+                    {
+                        img.at<uchar>(pixel+y, i) = 255;
                     }
                 } 
-            }
-        }    
-    }
-}
-
-void flood_line(Mat& img, Point seed, vector<Point>& line_pts)
-{
-    // If point isn't black, return.
-    if( img.at<uchar>(seed) != 0 ) { return; }
-    if( seed.x < 0 || seed.x > img.rows || seed.y < 0 || seed.y > img.cols );
-    if( std::find(line_pts.begin(), line_pts.end(), seed)!=line_pts.end() ) { return; }
-
-    line_pts.push_back(seed);
-
-    img.at<uchar>(seed) = 255;
-    flood_line(img, Point(seed.x - 1, seed.y), line_pts);
-    flood_line(img, Point(seed.x + 1, seed.y), line_pts);
-    flood_line(img, Point(seed.x, seed.y - 1), line_pts);
-    flood_line(img, Point(seed.x, seed.y + 1), line_pts);
-}
-
-void remove_staff2(Mat& orig, Mat& img, int index)
-{
-    char b = rng.uniform(0, 255);
-    char g = rng.uniform(0, 255);
-    char r = rng.uniform(0, 255);
-
-    for(int x = 0; x < img.cols; x++) {
-        if(img.at<uchar>(index, x) == 0) { 
-            vector<Point> pts;
-            flood_line(img, Point(x, index), pts);            
-            for( vector<Point>::iterator it = pts.begin(); it != pts.end(); ++it) {
-                orig.at<Vec3b>(it->y, it->x)[0] = b;
-                orig.at<Vec3b>(it->y, it->x)[1] = g;
-                orig.at<Vec3b>(it->y, it->x)[2] = r;
             }
         }    
     }
@@ -210,7 +186,7 @@ int main(int argc, char** argv)
     //The most length of the longest line
     int max = *max_element(horiz_proj.begin(), horiz_proj.end());
     
-    for(int i = 0; i < horiz_proj.size(); i++) 
+    for(int i=0; i<horiz_proj.size(); i++) 
     {
         //One line is confirmed to be a line if it's at least the max line length/3.5
         if(horiz_proj[i] > max/3.5) 
@@ -227,7 +203,7 @@ int main(int argc, char** argv)
             }
 
             //If the next pixel line is 1 pixel near
-            else if (abs(i - last_line) == 1)
+            else if (abs(i-last_line) == 1)
             {
                 lines_pixel += i;
                 last_line = i;
