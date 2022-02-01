@@ -4,6 +4,9 @@
         "chrono": "cpp",
         "variant": "cpp",
         "valarray": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "*.tcc": "cpp",
+        "deque": "cpp",
+        "vector": "cpp"
     }
 }

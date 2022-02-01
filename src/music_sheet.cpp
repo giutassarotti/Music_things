@@ -169,8 +169,8 @@ music_sheet::music_sheet (const std::string& filename)
     //The final lines
     //vector<int> lines;
     vector<array<unsigned, 5>> lines;
-    int n_group = 0;   //number of 5-group lines
-    int n_lines;       //every 5 lines is a group
+    int n_group = -1;   //number of 5-group lines
+    int n_lines = 0;   //every 5 lines is a group
 
     //Single line's pixel in the staff
     int lines_pixel;
@@ -189,27 +189,16 @@ music_sheet::music_sheet (const std::string& filename)
         //One line is confirmed to be a line if it's at least the max line length/3.5
         if(horiz_proj[i] > max/3.5) 
         {
-            n_lines++;
             //Every line needs to be removed from the image
             remove_staff(gray_img, i);
 
-            //If it's a new line
+            //If it's a new pixel line
             if (n_pixel == 0)
             {
                 if (n_lines == 0)
                 {
-                    n_group++;
-                    n_lines = 0;
-
                     lines.emplace_back();
-                }
-                else if (n_lines == 4)
-                {
-                    n_lines = 0;
-                }
-                else
-                {
-                    n_lines++;
+                    n_group++;
                 }
 
                 lines_pixel = i; 
@@ -229,12 +218,21 @@ music_sheet::music_sheet (const std::string& filename)
             else
             {
                 //Average pixel in a line (a line made of some pixel lines)
-                lines[n_group][n_lines] = static_cast<int>(static_cast<double>(lines_pixel)/n_pixel);
+                lines.back()[n_lines] = static_cast<int>(static_cast<double>(lines_pixel)/n_pixel);
 
-                //Stamps the average line's pixel
+                //Prints the average line's pixel
                 cout << n_group << ' ' << n_lines << endl;
                 
                 //Let's restart and find next line
+                if (n_lines == 4)
+                {
+                    n_lines = 0;
+                }
+                else
+                {
+                    n_lines++;
+                }
+
                 n_pixel = 0; 
 
                 //Creates the found line for the show (the red lines show)
