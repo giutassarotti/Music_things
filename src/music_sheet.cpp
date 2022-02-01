@@ -1,5 +1,20 @@
 #include "music_sheet.hpp"
 
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/photo.hpp>
+
+#include <iostream>
+#include <cmath>
+#include <algorithm>
+
+using namespace cv;
+
+using std::endl;
+using std::cout;
+using std::string; 
+using std::vector;
+using std::array;
 using music::music_sheet;
 
 void horizontal_projection(Mat& img, vector<int>& histo)
@@ -54,14 +69,14 @@ void remove_staff(Mat& img, int pixel)
     int n=3, m=1;
     for(int i=0; i<img.cols; i++) 
     {
-        if(img.at<uchar>(pixel, i) == 0) 
+        if(img.at<unsigned char>(pixel, i) == 0) 
         { 
             sum = 0;
             for(int y=-n; y<=n; y++) 
             {
                 if(pixel + y > 0 && pixel + y < img.rows) 
                 {
-                    sum += img.at<uchar>(pixel+y, i);                    
+                    sum += img.at<unsigned char>(pixel+y, i);                    
                 }
             }
             if(sum > 1000) 
@@ -70,7 +85,7 @@ void remove_staff(Mat& img, int pixel)
                 {
                     if(pixel + y > 0 && pixel + y < img.rows) 
                     {
-                        img.at<uchar>(pixel+y, i) = 255;
+                        img.at<unsigned char>(pixel+y, i) = 255;
                     }
                 } 
             }
@@ -79,17 +94,20 @@ void remove_staff(Mat& img, int pixel)
 }
 
 //Finds the figures and draw a rectangle on them
-void find_boxes(int t, Mat& threshold_output, vector<Rect>& boxes)
+vector<Mat> find_boxes(int t, Mat boxes_img, vector<Rect>& boxes)
 {
+    static RNG rng(12385);
     //Finds contours
     //This function finds contours in a binary image.
+    vector<Mat> result; //Vector containing matches found
     vector<vector<Point>> contours; //Each contour is stored as a vector of points
     vector<Vec4i> hierarchy;        //Optional output vector containing information about the image topology.
-    findContours(threshold_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0));
+    findContours(boxes_img, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0));
 
-    //Input vector of a 2D point and the final boxes (resize after the contours function)
+    //Input vector of a 2D point, the final boxes and the final small images (resize after the contours function)
     vector<vector<Point>> contours_boxes(contours.size());
     boxes.resize(contours.size());
+    result.resize(contours.size());
 
     for(int i=0; i<contours.size(); i++) 
     { 
@@ -99,31 +117,31 @@ void find_boxes(int t, Mat& threshold_output, vector<Rect>& boxes)
         boxes[i] = boundingRect(Mat(contours_boxes[i]));
     }
 
-    //The image with boxes
-    Mat boxes_img = Mat::zeros(threshold_output.size(), CV_8UC3);
-
     for(int i=0; i<contours.size(); i++) 
     {
         //I need many colours for see the different boxes
         Scalar colour = Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255));
-        drawContours(boxes_img, contours_boxes, i, colour, 1, 8, vector<Vec4i>(), 0, Point());
         rectangle(boxes_img, boxes[i].tl(), boxes[i].br(), colour, 2, 8, 0);
+        
+        //Shows the single match
+        //imshow(std::to_string(i).data(), boxes_img(boxes[i]));
+
+        result.push_back(boxes_img(boxes[i]));
     }
 
     //Shows the image with boxes
     imshow("Boxes", boxes_img);
+
+    return result;
 }
 
-music_sheet::music_sheet (const char* filename)	
+music_sheet::music_sheet (const std::string& filename)	
 {
-    const char* filename = argc >= 2 ? argv[1] : "test.jpg";
-
     //Try to read the original colour source image.
-    Mat colour_img = imread(filename, IMREAD_COLOR);
+    Mat colour_img = imread(filename.data(), IMREAD_COLOR);
     if(colour_img.empty()) {
-        help();
         cout << "can not open " << filename << endl;
-        return -1;
+        exit(-1);
     }
 
     //Converts the image from color version to black and white
@@ -147,35 +165,56 @@ music_sheet::music_sheet (const char* filename)
 
     //Single lines' position (1 pixel)
     vector<int> staff_positions;
+    
     //The final lines
-    vector<int> lines;
+    //vector<int> lines;
+    vector<array<unsigned, 5>> lines;
+    int n_group = 0;   //number of 5-group lines
+    int n_lines;       //every 5 lines is a group
 
     //Single line's pixel in the staff
     int lines_pixel;
 
     //Number of the single pixel lines that make one real line in the staff
-    int n_lines;
+    int n_pixel = 0;
 
     //Last single pixel line's pixel
     int last_line;
     
     //The most length of the longest line
     int max = *max_element(horiz_proj.begin(), horiz_proj.end());
-    
+
     for(int i=0; i<horiz_proj.size(); i++) 
     {
         //One line is confirmed to be a line if it's at least the max line length/3.5
         if(horiz_proj[i] > max/3.5) 
         {
+            n_lines++;
             //Every line needs to be removed from the image
             remove_staff(gray_img, i);
 
             //If it's a new line
-            if (n_lines == 0)
+            if (n_pixel == 0)
             {
+                if (n_lines == 0)
+                {
+                    n_group++;
+                    n_lines = 0;
+
+                    lines.emplace_back();
+                }
+                else if (n_lines == 4)
+                {
+                    n_lines = 0;
+                }
+                else
+                {
+                    n_lines++;
+                }
+
                 lines_pixel = i; 
                 last_line = i;
-                n_lines = 1;
+                n_pixel = 1;
             }
 
             //If the next pixel line is 1 pixel near
@@ -183,23 +222,23 @@ music_sheet::music_sheet (const char* filename)
             {
                 lines_pixel += i;
                 last_line = i;
-                n_lines++;
+                n_pixel++;
             }
 
             //If the line is finished
             else
             {
                 //Average pixel in a line (a line made of some pixel lines)
-                lines.push_back(static_cast<int>(static_cast<double>(lines_pixel)/n_lines));
-                
+                lines[n_group][n_lines] = static_cast<int>(static_cast<double>(lines_pixel)/n_pixel);
+
                 //Stamps the average line's pixel
-                //cout << lines.back() << ' ' << n_lines << endl;
+                cout << n_group << ' ' << n_lines << endl;
                 
                 //Let's restart and find next line
-                n_lines = 0; 
+                n_pixel = 0; 
 
                 //Creates the found line for the show (the red lines show)
-                line(red_lines_img, Point(0, lines.back()), Point(gray_img.size().width, lines.back()), Scalar(0, 0, 255), 2);
+                //line(red_lines_img, Point(0, lines[n_group][n_lines]), Point(gray_img.size().width, lines[n_group][n_lines]), Scalar(0, 0, 255), 2);
             }
         }
     }
@@ -211,5 +250,9 @@ music_sheet::music_sheet (const char* filename)
 
     //Every figure will be in a rectangle (i'll call it boxe)
     vector<Rect> boxes;
+    static constexpr int thresh = 100;
     find_boxes(thresh, gray_img, boxes);
+
+    //TODO rimuovere
+    waitKey();
 }
