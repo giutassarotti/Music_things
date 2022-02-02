@@ -17,6 +17,12 @@ using std::vector;
 using std::array;
 using music::music_sheet;
 
+struct Boxe 
+{
+    Mat image;
+    Rect rectangle;
+};
+
 void horizontal_projection(Mat& img, vector<int>& histo)
 {
     Mat proj = Mat::zeros(img.rows, img.cols, img.type());
@@ -94,12 +100,14 @@ void remove_staff(Mat& img, int pixel)
 }
 
 //Finds the figures and draw a rectangle on them
-vector<Mat> find_boxes(int t, Mat boxes_img, vector<Rect>& boxes)
+vector<Boxe> find_boxes(Mat boxes_img)
 {
     static RNG rng(12385);
-    //Finds contours
+    
+    //Final boxes
+    vector<Boxe> boxes;
+    
     //This function finds contours in a binary image.
-    vector<Mat> result; //Vector containing matches found
     vector<vector<Point>> contours; //Each contour is stored as a vector of points
     vector<Vec4i> hierarchy;        //Optional output vector containing information about the image topology.
     findContours(boxes_img, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0));
@@ -107,32 +115,32 @@ vector<Mat> find_boxes(int t, Mat boxes_img, vector<Rect>& boxes)
     //Input vector of a 2D point, the final boxes and the final small images (resize after the contours function)
     vector<vector<Point>> contours_boxes(contours.size());
     boxes.resize(contours.size());
-    result.resize(contours.size());
 
     for(int i=0; i<contours.size(); i++) 
     { 
         //approxPolyDP approximates a curve or a polygon with another curve/polygon with less vertices so that the distance between them is less or equal to the specified precision.
         approxPolyDP(Mat(contours[i]), contours_boxes[i], 3, true);
         //boundingRect returns the minimal up-right integer rectangle containing the rotated rectangle
-        boxes[i] = boundingRect(Mat(contours_boxes[i]));
+        
+        boxes.emplace_back();
+        boxes[i].rectangle = boundingRect(Mat(contours_boxes[i]));
+        boxes[i].image = boxes_img(boxes[i].rectangle);
     }
 
     for(int i=0; i<contours.size(); i++) 
     {
         //I need many colours for see the different boxes
         Scalar colour = Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255));
-        rectangle(boxes_img, boxes[i].tl(), boxes[i].br(), colour, 2, 8, 0);
+        rectangle(boxes_img, boxes[i].rectangle.tl(), boxes[i].rectangle.br(), colour, 2, 8, 0);
         
         //Shows the single match
-        //imshow(std::to_string(i).data(), boxes_img(boxes[i]));
-
-        result.push_back(boxes_img(boxes[i]));
+        imshow(std::to_string(i).data(), boxes_img(boxes[i].rectangle));
     }
 
     //Shows the image with boxes
     imshow("Boxes", boxes_img);
 
-    return result;
+    return boxes;
 }
 
 vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
@@ -256,10 +264,7 @@ music_sheet::music_sheet (const std::string& filename)
     //Shows the found lines (in red)
     //imshow("Red Found Lines", red_lines_img);
 
-    //Every figure will be in a rectangle (i'll call it boxe)
-    vector<Rect> boxes;
-    static constexpr int thresh = 100;
-    find_boxes(thresh, nolines_img, boxes);
+    vector<Boxe> boxes = find_boxes(nolines_img);
 
     //TODO rimuovere
     waitKey();
