@@ -135,33 +135,11 @@ vector<Mat> find_boxes(int t, Mat boxes_img, vector<Rect>& boxes)
     return result;
 }
 
-music_sheet::music_sheet (const std::string& filename)	
+vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
 {
-    //Try to read the original colour source image.
-    Mat colour_img = imread(filename.data(), IMREAD_COLOR);
-    if(colour_img.empty()) {
-        cout << "can not open " << filename << endl;
-        exit(-1);
-    }
-
-    //Converts the image from color version to black and white
-    Mat gray_img;
-    cvtColor(colour_img, gray_img, COLOR_RGB2GRAY);
-    //Stamps original b&w image
-    //imshow("B&W1", gray_img);
-
-    //I'll need a copy for a test (finding lines)
-    Mat red_lines_img = colour_img.clone();
-    
-    //Applies a fixed-level threshold to each array element.
-    threshold(gray_img, gray_img, 200, 255, THRESH_TOZERO);
-
-    //Stamps modified b&w image
-    //imshow("Black and White with adjustments", gray_img);
-
     //Projection for find staff's lines
     vector<int> horiz_proj; 
-    horizontal_projection(gray_img, horiz_proj);
+    horizontal_projection(nolines_img, horiz_proj);
 
     //Single lines' position (1 pixel)
     vector<int> staff_positions;
@@ -190,7 +168,7 @@ music_sheet::music_sheet (const std::string& filename)
         if(horiz_proj[i] > max/3.5) 
         {
             //Every line needs to be removed from the image
-            remove_staff(gray_img, i);
+            remove_staff(nolines_img, i);
 
             //If it's a new pixel line
             if (n_pixel == 0)
@@ -221,7 +199,7 @@ music_sheet::music_sheet (const std::string& filename)
                 lines.back()[n_lines] = static_cast<int>(static_cast<double>(lines_pixel)/n_pixel);
 
                 //Prints the average line's pixel
-                cout << n_group << ' ' << n_lines << endl;
+                //cout << n_group << ' ' << n_lines << endl;
                 
                 //Let's restart and find next line
                 if (n_lines == 4)
@@ -236,20 +214,52 @@ music_sheet::music_sheet (const std::string& filename)
                 n_pixel = 0; 
 
                 //Creates the found line for the show (the red lines show)
-                //line(red_lines_img, Point(0, lines[n_group][n_lines]), Point(gray_img.size().width, lines[n_group][n_lines]), Scalar(0, 0, 255), 2);
+                //line(red_lines_img, Point(0, lines[n_group][n_lines]), Point(nolines_img.size().width, lines[n_group][n_lines]), Scalar(0, 0, 255), 2);
             }
         }
     }
-    //Shows the image without lines
-    imshow("Without lines", gray_img);
+    
+    return lines;
+}
 
+music_sheet::music_sheet (const std::string& filename)	
+{
+    //Try to read the original colour source image.
+    Mat colour_img = imread(filename.data(), IMREAD_COLOR);
+    if(colour_img.empty()) {
+        cout << "I can not open it." << filename << endl;
+        exit(-1);
+    }
+
+    //Converts the image from color version to black and white
+    Mat gray_img;
+    cvtColor(colour_img, gray_img, COLOR_RGB2GRAY);
+    //Shows original b&w image
+    //imshow("B&W", gray_img);
+    
+    //Applies a fixed-level threshold to each array element.
+    threshold(gray_img, gray_img, 200, 255, THRESH_TOZERO);
+    //Shows modified b&w image
+    //imshow("Black and White with adjustments", gray_img);
+
+    //I'll need a copy for a test (finding lines)
+    Mat red_lines_img = colour_img.clone();
+
+    //I need an image without lines, without modify the original
+    Mat nolines_img = gray_img.clone();
+
+    //Find lines
+    vector<array<unsigned, 5>> lines = find_lines(red_lines_img, nolines_img);
+
+    //Shows the image without lines
+    imshow("Without lines", nolines_img);
     //Shows the found lines (in red)
     //imshow("Red Found Lines", red_lines_img);
 
     //Every figure will be in a rectangle (i'll call it boxe)
     vector<Rect> boxes;
     static constexpr int thresh = 100;
-    find_boxes(thresh, gray_img, boxes);
+    find_boxes(thresh, nolines_img, boxes);
 
     //TODO rimuovere
     waitKey();
