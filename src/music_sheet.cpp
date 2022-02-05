@@ -5,11 +5,14 @@
 #include <opencv2/photo.hpp>
 
 #include <iostream>
+#include <set>
+#include <functional>
 #include <cmath>
 #include <algorithm>
 
 using namespace cv;
 
+using std::set;
 using std::endl;
 using std::cout;
 using std::string; 
@@ -17,10 +20,54 @@ using std::vector;
 using std::array;
 using music::music_sheet;
 
-struct Boxe 
+struct Box 
 {
     Mat image;
     Rect rectangle;
+};
+
+struct Box_Comparator 
+{
+    vector<array<unsigned, 5>> lines;
+
+    bool box_matching(const Box& box)
+    {
+        for (auto lines: this->lines)
+        {
+            if (box_inside_lines(box, lines))
+            {
+                return true; 
+            }
+        }
+
+        return false;
+    }
+
+    inline bool box_inside_lines(const Box& box, const array<unsigned, 5>& lines) const
+    {
+        return box.rectangle.y <= lines.back() && (box.rectangle.y + box.rectangle.height >= lines.front());
+    }
+
+    bool operator()(const Box& lhs, const Box& rhs) const 
+    { 
+        for (auto l: lines)
+        {
+            bool l_match = box_inside_lines(lhs, l);
+            bool r_match = box_inside_lines(rhs, l);
+
+            if (l_match ^ r_match)
+            {
+                return lhs.rectangle.y < rhs.rectangle.y;
+            }
+
+            if (l_match && r_match)
+            {
+                return lhs.rectangle.x < rhs.rectangle.x;
+            }
+        }
+
+        return false;
+    }
 };
 
 void horizontal_projection(Mat& img, vector<int>& histo)
@@ -99,13 +146,41 @@ void remove_staff(Mat& img, int pixel)
     }
 }
 
+bool boxes_h_touching(const Box& left, const Box& right)
+{
+    auto x1 = left.rectangle.x + left.rectangle.width;
+
+    cout << left.rectangle.x << ' ' << x1 << ' ' << right.rectangle.x << ' ' << right.rectangle.width << ' ' << (x1 >= right.rectangle.x) << '\n';
+
+    return x1 >= right.rectangle.x && x1 <= (right.rectangle.x + right.rectangle.width);
+}
+
+bool boxes_v_touching(const Box& lowest, const Box& uppest)
+{
+    auto y1 = uppest.rectangle.y + uppest.rectangle.height;
+    return lowest.rectangle.y > uppest.rectangle.y && y1 >= lowest.rectangle.y;
+}
+
+bool boxes_touching(const Box& left, const Box& right)
+{
+    if (boxes_v_touching(left, right) || boxes_v_touching(left, right))
+    {
+        return boxes_h_touching(left, right);
+    }
+
+    return false;
+}
+
 //Finds the figures and draw a rectangle on them
-vector<Boxe> find_boxes(Mat boxes_img)
+vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
 {
     static RNG rng(12385);
     
     //Final boxes
-    vector<Boxe> boxes;
+    Box_Comparator comparator;
+    comparator.lines = lines;
+    set<Box, Box_Comparator> boxes_set(comparator);
+    vector<Box> boxes_tmp, boxes;
     
     //This function finds contours in a binary image.
     vector<vector<Point>> contours; //Each contour is stored as a vector of points
@@ -114,27 +189,60 @@ vector<Boxe> find_boxes(Mat boxes_img)
 
     //Input vector of a 2D point, the final boxes and the final small images (resize after the contours function)
     vector<vector<Point>> contours_boxes(contours.size());
-    boxes.resize(contours.size());
 
-    for(int i=0; i<contours.size(); i++) 
+    for(int i=1; i<contours.size(); i++) 
     { 
         //approxPolyDP approximates a curve or a polygon with another curve/polygon with less vertices so that the distance between them is less or equal to the specified precision.
         approxPolyDP(Mat(contours[i]), contours_boxes[i], 3, true);
         //boundingRect returns the minimal up-right integer rectangle containing the rotated rectangle
         
-        boxes.emplace_back();
-        boxes[i].rectangle = boundingRect(Mat(contours_boxes[i]));
-        boxes[i].image = boxes_img(boxes[i].rectangle);
+        Box element; 
+        element.rectangle = boundingRect(Mat(contours_boxes[i]));
+        element.image = boxes_img(element.rectangle);
+        boxes_set.insert(element);
     }
 
-    for(int i=0; i<contours.size(); i++) 
+    //Removing elements that are not inside the sheet
+    std::copy_if(boxes_set.begin(), boxes_set.end(), std::inserter(boxes_tmp, boxes_tmp.end()), std::bind(&Box_Comparator::box_matching, &comparator, std::placeholders::_1));
+
+    Box last = boxes_tmp.front();
+    for (auto& box: boxes_tmp)
+    {
+        if (boxes_touching(box, last))
+        {
+            auto y1 = std::max(box.rectangle.y + box.rectangle.height, last.rectangle.y + last.rectangle.height);
+            auto x1 = std::max(box.rectangle.x + box.rectangle.width, last.rectangle.x + last.rectangle.width);
+
+            last.rectangle.x = std::min(last.rectangle.x, box.rectangle.x);
+            last.rectangle.y = std::min(last.rectangle.y, box.rectangle.y);
+
+            last.rectangle.height = y1 - last.rectangle.y;
+            last.rectangle.width = x1 - last.rectangle.x;
+        }
+        else
+        {
+            last.image = boxes_img(last.rectangle);
+            boxes.push_back(last);
+            last = box;
+        }
+    }
+
+    for (auto& el: boxes)
+    {
+        cout << el.rectangle.x << ' ' << el.rectangle.y << '\n';
+    }
+
+    size_t i = 0;
+    for(auto& box: boxes) 
     {
         //I need many colours for see the different boxes
-        Scalar colour = Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255));
-        rectangle(boxes_img, boxes[i].rectangle.tl(), boxes[i].rectangle.br(), colour, 2, 8, 0);
+        //Scalar colour = Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255));
+        Scalar colour = Scalar(0, 0, 0);
+        rectangle(boxes_img, box.rectangle.tl(), box.rectangle.br(), colour, 2, 8, 0);
         
         //Shows the single match
-        imshow(std::to_string(i).data(), boxes_img(boxes[i].rectangle));
+        imshow(std::to_string(i), boxes_img(box.rectangle));
+        ++i;
     }
 
     //Shows the image with boxes
@@ -264,7 +372,7 @@ music_sheet::music_sheet (const std::string& filename)
     //Shows the found lines (in red)
     //imshow("Red Found Lines", red_lines_img);
 
-    vector<Boxe> boxes = find_boxes(nolines_img);
+    vector<Box> boxes = find_boxes(nolines_img, lines);
 
     //TODO rimuovere
     waitKey();
