@@ -24,6 +24,9 @@ struct Box
 {
     Mat image;
     Rect rectangle;
+
+    vector<int> x_proj;
+    vector<int> y_proj;
 };
 
 struct Box_Comparator 
@@ -70,9 +73,24 @@ struct Box_Comparator
     }
 };
 
-void horizontal_projection(Mat& img, vector<int>& histo)
+void show_proj(const std::string& title, const vector<int>& histogram)
 {
-    Mat proj = Mat::zeros(img.rows, img.cols, img.type());
+    Mat proj = Mat::zeros(histogram.size(), 1 + *std::max_element(histogram.begin(), histogram.end()), CV_64FC1);
+
+    size_t y = 0;
+    for (auto h: histogram)
+    {
+        line(proj, Point(0, y), Point(h, y), Scalar(255,255,255), 1, 4);
+        ++y;
+    }
+
+    //Shows the projection
+    //TODO usefull for a good image for presentation
+    imshow(title.data(), proj);
+}
+
+void horizontal_projection(Mat& img, vector<int>& histogram)
+{
     int count, i, j;
 
     for(i = 0; i < img.rows; i++) 
@@ -82,19 +100,13 @@ void horizontal_projection(Mat& img, vector<int>& histo)
             count += (img.at<int>(i, j)) ? 0:1;
         }
 
-        histo.push_back(count);
-        //line(proj, Point(0, i), Point(count, i), Scalar(255,255,255), 1, 4);
+        histogram.push_back(count);
     }
-
-    //Shows the projection
-    //TODO usefull for a good image for presentation
-    //imshow("o projection", proj);
 }
 
 //Vertical projection
-void vert_projection(Mat& img, vector<int>& histo)
+void vertical_projection(Mat& img, vector<int>& histogram)
 {
-    Mat proj = Mat::zeros(img.rows, img.cols, img.type());
     int count, i, j, k;
 
     for(i=0; i < img.cols; i++) 
@@ -107,11 +119,8 @@ void vert_projection(Mat& img, vector<int>& histo)
             }
         }
 
-        histo.push_back(count);
-        //line(proj, Point(i, 0), Point(i, count/img.channels()), Scalar(255,255,255), 1, 4);
+        histogram.push_back(count);
     }
-
-    //imshow("v projection", proj);
 }
 
 //Removes the staff from the image (a single found pixel line)
@@ -146,24 +155,30 @@ void remove_staff(Mat& img, int pixel)
     }
 }
 
+//If 2 boxes are touching horizontally
 bool boxes_h_touching(const Box& left, const Box& right)
 {
     auto x1 = left.rectangle.x + left.rectangle.width;
 
-    cout << left.rectangle.x << ' ' << x1 << ' ' << right.rectangle.x << ' ' << right.rectangle.width << ' ' << (x1 >= right.rectangle.x) << '\n';
+    //cout << left.rectangle.x << ' ' << x1 << ' ' << right.rectangle.x << ' ' << right.rectangle.width << ' ' << (x1 >= right.rectangle.x && x1 <= (right.rectangle.x + right.rectangle.width)) << '\n';
 
-    return x1 >= right.rectangle.x && x1 <= (right.rectangle.x + right.rectangle.width);
+    return x1 >= right.rectangle.x && left.rectangle.x <= (right.rectangle.x);
 }
 
+//If 2 boxes are touching vertically
 bool boxes_v_touching(const Box& lowest, const Box& uppest)
 {
     auto y1 = uppest.rectangle.y + uppest.rectangle.height;
-    return lowest.rectangle.y > uppest.rectangle.y && y1 >= lowest.rectangle.y;
+
+    //cout << "v " << lowest.rectangle.x << ' ' << lowest.rectangle.y << ' ' << y1 << ' ' << uppest.rectangle.y << ' ' << uppest.rectangle.height << ' ' << (lowest.rectangle.y >= uppest.rectangle.y && y1 >= lowest.rectangle.y) << '\n';
+
+    return lowest.rectangle.y >= uppest.rectangle.y && y1 >= lowest.rectangle.y;
 }
 
+//If 2 boxes are touching
 bool boxes_touching(const Box& left, const Box& right)
 {
-    if (boxes_v_touching(left, right) || boxes_v_touching(left, right))
+    if (boxes_v_touching(left, right) || boxes_v_touching(right, left))
     {
         return boxes_h_touching(left, right);
     }
@@ -198,7 +213,6 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
         
         Box element; 
         element.rectangle = boundingRect(Mat(contours_boxes[i]));
-        element.image = boxes_img(element.rectangle);
         boxes_set.insert(element);
     }
 
@@ -208,8 +222,9 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
     Box last = boxes_tmp.front();
     for (auto& box: boxes_tmp)
     {
-        if (boxes_touching(box, last))
+        if (boxes_touching(last, box))
         {
+            //cout << "touching" << endl;
             auto y1 = std::max(box.rectangle.y + box.rectangle.height, last.rectangle.y + last.rectangle.height);
             auto x1 = std::max(box.rectangle.x + box.rectangle.width, last.rectangle.x + last.rectangle.width);
 
@@ -222,31 +237,13 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
         else
         {
             last.image = boxes_img(last.rectangle);
+            horizontal_projection(last.image, last.x_proj);
+            show_proj(std::to_string(boxes.size()), last.x_proj);
+            vertical_projection(last.image, last.y_proj);
             boxes.push_back(last);
             last = box;
         }
     }
-
-    for (auto& el: boxes)
-    {
-        cout << el.rectangle.x << ' ' << el.rectangle.y << '\n';
-    }
-
-    size_t i = 0;
-    for(auto& box: boxes) 
-    {
-        //I need many colours for see the different boxes
-        //Scalar colour = Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255));
-        Scalar colour = Scalar(0, 0, 0);
-        rectangle(boxes_img, box.rectangle.tl(), box.rectangle.br(), colour, 2, 8, 0);
-        
-        //Shows the single match
-        imshow(std::to_string(i), boxes_img(box.rectangle));
-        ++i;
-    }
-
-    //Shows the image with boxes
-    imshow("Boxes", boxes_img);
 
     return boxes;
 }
@@ -371,8 +368,25 @@ music_sheet::music_sheet (const std::string& filename)
     imshow("Without lines", nolines_img);
     //Shows the found lines (in red)
     //imshow("Red Found Lines", red_lines_img);
+    
+    Mat boxes_img = nolines_img.clone();
 
-    vector<Box> boxes = find_boxes(nolines_img, lines);
+    vector<Box> boxes = find_boxes(boxes_img, lines);
+
+    //size_t i = 0;
+    for(auto& box: boxes) 
+    {
+        //I need many colours for see the different boxes
+        //Scalar colour = Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255));
+        Scalar colour = Scalar(0, 0, 0);
+        rectangle(boxes_img, box.rectangle.tl(), box.rectangle.br(), colour, 2, 8, 0);
+        
+        //Shows the single match
+        //imshow(std::to_string(i), boxes_img(box.rectangle));
+        //++i;
+    }
+    //Shows the image with boxes
+    imshow("Boxes", boxes_img);
 
     //TODO rimuovere
     waitKey();
