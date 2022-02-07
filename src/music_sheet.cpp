@@ -238,8 +238,15 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
         {
             last.image = boxes_img(last.rectangle);
             horizontal_projection(last.image, last.x_proj);
+            
+            //Shows every horizontal projection (of the little boxes)
             show_proj(std::to_string(boxes.size()), last.x_proj);
+            
             vertical_projection(last.image, last.y_proj);
+
+            //Shows every vertical projection (of the little boxes)
+            //show_proj(std::to_string(boxes.size()), last.y_proj);
+
             boxes.push_back(last);
             last = box;
         }
@@ -369,16 +376,16 @@ music_sheet::music_sheet (const std::string& filename)
     //Shows the found lines (in red)
     //imshow("Red Found Lines", red_lines_img);
     
+    vector<Box> boxes = find_boxes(nolines_img, lines);
+
     Mat boxes_img = nolines_img.clone();
-
-    vector<Box> boxes = find_boxes(boxes_img, lines);
-
+    cvtColor(boxes_img, boxes_img, COLOR_BGR2BGRA);
     //size_t i = 0;
     for(auto& box: boxes) 
     {
         //I need many colours for see the different boxes
         //Scalar colour = Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255));
-        Scalar colour = Scalar(0, 0, 0);
+        Scalar colour = Scalar(0, 255, 0);
         rectangle(boxes_img, box.rectangle.tl(), box.rectangle.br(), colour, 2, 8, 0);
         
         //Shows the single match
