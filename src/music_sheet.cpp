@@ -9,6 +9,8 @@
 #include <functional>
 #include <cmath>
 #include <algorithm>
+#include <functional>
+#include <numeric>
 
 using namespace cv;
 
@@ -89,7 +91,30 @@ void show_proj(const std::string& title, const vector<int>& histogram)
     imshow(title.data(), proj);
 }
 
-void horizontal_projection(Mat& img, vector<int>& histogram)
+//Print a single histogram 
+void print_proj(const vector<int>& histogram)
+{
+    for (auto h: histogram)
+    {
+        cout << h << ", ";
+    }
+};
+
+//Calculates similarity between 2 histograms
+auto similarity(const vector<int>& histogram1, const vector<int>& histogram2)
+{
+    std::function<unsigned(unsigned, unsigned)> square_error = [](unsigned a, unsigned b) 
+    {
+        auto e = a-b;
+        return e*e;
+    };
+    auto sum = std::transform_reduce(histogram1.begin(), histogram1.end(), histogram2.begin(), 0, std::plus<>(), square_error);
+    auto error = std::sqrt(sum / histogram1.size());
+
+    return error;
+}
+
+    void horizontal_projection(Mat& img, vector<int>& histogram)
 {
     int count, i, j;
 
@@ -240,7 +265,7 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
             horizontal_projection(last.image, last.x_proj);
             
             //Shows every horizontal projection (of the little boxes)
-            show_proj(std::to_string(boxes.size()), last.x_proj);
+            //show_proj(std::to_string(boxes.size()), last.x_proj);
             
             vertical_projection(last.image, last.y_proj);
 
@@ -394,6 +419,10 @@ music_sheet::music_sheet (const std::string& filename)
     }
     //Shows the image with boxes
     imshow("Boxes", boxes_img);
+
+    print_proj(boxes[1].x_proj);
+    cout << endl;
+    print_proj(boxes[1].y_proj);
 
     //TODO rimuovere
     waitKey();
