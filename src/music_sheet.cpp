@@ -100,21 +100,8 @@ void print_proj(const vector<int>& histogram)
     }
 };
 
-//Calculates similarity between 2 histograms
-auto similarity(const vector<int>& histogram1, const vector<int>& histogram2)
-{
-    std::function<unsigned(unsigned, unsigned)> square_error = [](unsigned a, unsigned b) 
-    {
-        auto e = a-b;
-        return e*e;
-    };
-    auto sum = std::transform_reduce(histogram1.begin(), histogram1.end(), histogram2.begin(), 0, std::plus<>(), square_error);
-    auto error = std::sqrt(sum / histogram1.size());
-
-    return error;
-}
-
-    void horizontal_projection(Mat& img, vector<int>& histogram)
+//Horizontal projection
+void horizontal_projection(Mat& img, vector<int>& histogram)
 {
     int count, i, j;
 
@@ -122,9 +109,10 @@ auto similarity(const vector<int>& histogram1, const vector<int>& histogram2)
     {   
         for(count = 0, j = 0; j < img.cols; j++) 
         {
-            count += (img.at<int>(i, j)) ? 0:1;
+            count += (img.at<uint8_t>(i, j)) ? 0:1;
+            //cout << (img.at<uint8_t>(i,j) ? 0:1) << " ";
         }
-
+        //cout << endl;
         histogram.push_back(count);
     }
 }
@@ -140,12 +128,26 @@ void vertical_projection(Mat& img, vector<int>& histogram)
         {
             for(k=0; k < img.channels(); k++) 
             {
-                count += (img.at<int>(j, i, k)) ? 0:1;
+                count += (img.at<uint8_t>(j, i, k)) ? 0:1;
             }
         }
 
         histogram.push_back(count);
     }
+}
+
+//Calculates similarity between 2 histograms
+auto similarity(const vector<int>& histogram1, const vector<int>& histogram2)
+{
+    std::function<unsigned(unsigned, unsigned)> square_error = [](unsigned a, unsigned b) 
+    {
+        auto e = a-b;
+        return e*e;
+    };
+    auto sum = std::transform_reduce(histogram1.begin(), histogram1.end(), histogram2.begin(), 0, std::plus<>(), square_error);
+    auto error = std::sqrt(sum / histogram1.size());
+
+    return error;
 }
 
 //Removes the staff from the image (a single found pixel line)
@@ -359,7 +361,7 @@ vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
                 n_pixel = 0; 
 
                 //Creates the found line for the show (the red lines show)
-                //line(red_lines_img, Point(0, lines[n_group][n_lines]), Point(nolines_img.size().width, lines[n_group][n_lines]), Scalar(0, 0, 255), 2);
+                line(red_lines_img, Point(0, lines[n_group][n_lines]), Point(nolines_img.size().width, lines[n_group][n_lines]), Scalar(0, 0, 255), 2);
             }
         }
     }
@@ -398,14 +400,15 @@ music_sheet::music_sheet (const std::string& filename)
 
     //Shows the image without lines
     imshow("Without lines", nolines_img);
+
     //Shows the found lines (in red)
-    //imshow("Red Found Lines", red_lines_img);
+    imshow("Red Found Lines", red_lines_img);
     
     vector<Box> boxes = find_boxes(nolines_img, lines);
 
     Mat boxes_img = nolines_img.clone();
     cvtColor(boxes_img, boxes_img, COLOR_BGR2BGRA);
-    //size_t i = 0;
+    size_t i = 0;
     for(auto& box: boxes) 
     {
         //I need many colours for see the different boxes
@@ -415,14 +418,24 @@ music_sheet::music_sheet (const std::string& filename)
         
         //Shows the single match
         //imshow(std::to_string(i), boxes_img(box.rectangle));
-        //++i;
+        ++i;
     }
     //Shows the image with boxes
     imshow("Boxes", boxes_img);
 
-    print_proj(boxes[1].x_proj);
-    cout << endl;
-    print_proj(boxes[1].y_proj);
+/*
+    int i = 0;
+    for(auto& box: boxes)
+    {
+        cout << i << "x ";
+        print_proj(box.x_proj);
+        cout << endl;
+        cout << i << "y ";
+        print_proj(box.y_proj);
+        cout << endl;
+        i++;
+    }
+*/
 
     //TODO rimuovere
     waitKey();
