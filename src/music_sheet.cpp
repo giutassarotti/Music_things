@@ -110,9 +110,10 @@ void horizontal_projection(Mat& img, vector<int>& histogram)
         for(count = 0, j = 0; j < img.cols; j++) 
         {
             count += (img.at<uint8_t>(i, j)) ? 0:1;
-            //cout << (img.at<uint8_t>(i,j) ? 0:1) << " ";
+            cout << (img.at<uint8_t>(i,j) ? 0:1) << " ";
         }
-        //cout << endl;
+        //uint8_t
+        cout << endl;
         histogram.push_back(count);
     }
 }
@@ -128,7 +129,7 @@ void vertical_projection(Mat& img, vector<int>& histogram)
         {
             for(k=0; k < img.channels(); k++) 
             {
-                count += (img.at<uint8_t>(j, i, k)) ? 0:1;
+                count += (img.at<int>(j, i, k)) ? 0:1;
             }
         }
 
@@ -292,7 +293,6 @@ vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
     vector<int> staff_positions;
     
     //The final lines
-    //vector<int> lines;
     vector<array<unsigned, 5>> lines;
     int n_group = -1;   //number of 5-group lines
     int n_lines = 0;   //every 5 lines is a group
@@ -424,16 +424,16 @@ music_sheet::music_sheet (const std::string& filename)
     imshow("Boxes", boxes_img);
 
 /*
-    int i = 0;
+    int y = 0;
     for(auto& box: boxes)
     {
-        cout << i << "x ";
+        cout << y << "x ";
         print_proj(box.x_proj);
         cout << endl;
-        cout << i << "y ";
+        cout << y << "y ";
         print_proj(box.y_proj);
         cout << endl;
-        i++;
+        y++;
     }
 */
 
