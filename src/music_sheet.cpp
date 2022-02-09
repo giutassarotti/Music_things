@@ -275,7 +275,8 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
             //Shows every vertical projection (of the little boxes)
             //show_proj(std::to_string(boxes.size()), last.y_proj);
 
-            boxes.push_back(last);
+            if (last.x_proj.size() >1 || last.y_proj.size() >1)
+                boxes.push_back(last);
             last = box;
         }
     }
@@ -436,8 +437,8 @@ music_sheet::music_sheet (const std::string& filename)
     vector<int> violin_y = { 0, 9, 8, 6, 6, 5, 6, 14, 14, 17, 18, 18, 17, 13, 16, 14, 16, 18, 16, 12, 12, 4, 3, 5, 6, 2, 0, 0, 0, 0 };
     vector<int> an_half_x = { 0, 9, 9, 11, 12, 12, 13, 12, 11, 11, 11, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0 };
     vector<int> an_half_y = { 0, 5, 7, 8, 8, 10, 10, 10, 10, 7, 6, 3, 0, 0 };
-    vector<int> pause_x = { 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 6, 9, 11, 12, 13, 13, 12, 11, 10, 9, 5, 0 };
-    vector<int> pause_y = { 0, 6, 7, 9, 9, 9, 9, 9, 8, 6, 5, 0, 0, 0, 0 };
+    vector<int> pause_x = { 0, 11, 11, 11, 11, 11, 11, 0 };
+    vector<int> pause_y = { 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0, 0, 0 };
     vector<int> beat_x = { 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0 };
     vector<int> beat_y = { 0, 0 };
 
