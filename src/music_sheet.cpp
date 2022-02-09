@@ -1,4 +1,5 @@
 #include "music_sheet.hpp"
+#include "opencv2/core/base.hpp"
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -110,10 +111,8 @@ void horizontal_projection(Mat& img, vector<int>& histogram)
         for(count = 0, j = 0; j < img.cols; j++) 
         {
             count += (img.at<uint8_t>(i, j)) ? 0:1;
-            cout << (img.at<uint8_t>(i,j) ? 0:1) << " ";
         }
         //uint8_t
-        cout << endl;
         histogram.push_back(count);
     }
 }
@@ -155,31 +154,34 @@ auto similarity(const vector<int>& histogram1, const vector<int>& histogram2)
 void remove_staff(Mat& img, int pixel)
 {
     int sum;
+    double n;
     //Parametres for understand who is the staff and who's not near that pixel
-    int n=3, m=1;
+    int area=4;
     for(int i=0; i<img.cols; i++) 
     {
         if(img.at<unsigned char>(pixel, i) == 0) 
         { 
             sum = 0;
-            for(int y=-n; y<=n; y++) 
+            n=0;
+            for(int y=-area; y<=area; y++) 
             {
-                if(pixel + y > 0 && pixel + y < img.rows) 
+                for (int x=0; x<=0; ++x)
                 {
-                    sum += img.at<unsigned char>(pixel+y, i);                    
+                    if(pixel + y > 0 && pixel + y < img.rows && i+x > 0 && i+x < img.cols && x!=i) 
+                    {
+                        sum += img.at<unsigned char>(pixel+y, i+x); 
+                        ++n;
+                    }
                 }
             }
-            if(sum > 1000) 
+            
+            if(sum/n > 140) 
             {
-                for(int y=-m; y<=m; y++) 
-                {
-                    if(pixel + y > 0 && pixel + y < img.rows) 
-                    {
-                        img.at<unsigned char>(pixel+y, i) = 255;
-                    }
-                } 
+                img.at<unsigned char>(pixel, i) = 255; 
             }
-        }    
+            else
+                cout << sum/n << endl;
+        }  
     }
 }
 
@@ -294,11 +296,11 @@ vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
     
     //The final lines
     vector<array<unsigned, 5>> lines;
-    int n_group = -1;   //number of 5-group lines
+    int n_group = 0;   //number of 5-group lines
     int n_lines = 0;   //every 5 lines is a group
 
     //Single line's pixel in the staff
-    int lines_pixel;
+    int lines_pixel = 0;
 
     //Number of the single pixel lines that make one real line in the staff
     int n_pixel = 0;
@@ -317,52 +319,45 @@ vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
             //Every line needs to be removed from the image
             remove_staff(nolines_img, i);
 
-            //If it's a new pixel line
-            if (n_pixel == 0)
+            if (n_lines == 0)
             {
-                if (n_lines == 0)
-                {
-                    lines.emplace_back();
-                    n_group++;
-                }
-
-                lines_pixel = i; 
-                last_line = i;
-                n_pixel = 1;
+                lines.emplace_back();
+                n_group++;
             }
 
             //If the next pixel line is 1 pixel near
-            else if (abs(i-last_line) == 1)
-            {
-                lines_pixel += i;
-                last_line = i;
-                n_pixel++;
-            }
+            lines_pixel += i;
+            last_line = i;
+            n_pixel++;
+        }
+        //If the line is finished
+        else if (abs(i-last_line) == 1 && n_group != 0)
+        {
+            //Average pixel in a line (a line made of some pixel lines)
+            lines.back()[n_lines] = static_cast<int>(static_cast<double>(lines_pixel)/n_pixel);
 
-            //If the line is finished
+            //Creates the found line for the show (the red lines show)
+            line(red_lines_img, Point(0, lines.back()[n_lines]), Point(red_lines_img.size().width, lines.back()[n_lines]), Scalar(0, 0, 255), 2);
+
+            //Prints the average line's pixel
+            //cout << n_group << ' ' << n_lines << endl;
+            
+            //Let's restart and find next line
+            if (n_lines == 4)
+            {
+                n_lines = 0;
+            }
             else
             {
-                //Average pixel in a line (a line made of some pixel lines)
-                lines.back()[n_lines] = static_cast<int>(static_cast<double>(lines_pixel)/n_pixel);
-
-                //Prints the average line's pixel
-                //cout << n_group << ' ' << n_lines << endl;
-                
-                //Let's restart and find next line
-                if (n_lines == 4)
-                {
-                    n_lines = 0;
-                }
-                else
-                {
-                    n_lines++;
-                }
-
-                n_pixel = 0; 
-
-                //Creates the found line for the show (the red lines show)
-                line(red_lines_img, Point(0, lines[n_group][n_lines]), Point(nolines_img.size().width, lines[n_group][n_lines]), Scalar(0, 0, 255), 2);
+                n_lines++;
             }
+
+            //n_pixel = 0; 
+
+            //If it's a new pixel line
+            lines_pixel = 0; 
+            last_line = 0;
+            n_pixel = 0;
         }
     }
     
@@ -385,7 +380,9 @@ music_sheet::music_sheet (const std::string& filename)
     //imshow("B&W", gray_img);
     
     //Applies a fixed-level threshold to each array element.
-    threshold(gray_img, gray_img, 200, 255, THRESH_TOZERO);
+    adaptiveThreshold(gray_img, gray_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 99, 15);
+
+    //gray_img = gray_img > 40;
     //Shows modified b&w image
     //imshow("Black and White with adjustments", gray_img);
 
