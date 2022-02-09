@@ -112,7 +112,6 @@ void horizontal_projection(Mat& img, vector<int>& histogram)
         {
             count += (img.at<uint8_t>(i, j)) ? 0:1;
         }
-        //uint8_t
         histogram.push_back(count);
     }
 }
@@ -139,7 +138,7 @@ void vertical_projection(Mat& img, vector<int>& histogram)
 //Calculates similarity between 2 histograms
 auto similarity(const vector<int>& histogram1, const vector<int>& histogram2)
 {
-    std::function<unsigned(unsigned, unsigned)> square_error = [](unsigned a, unsigned b) 
+    std::function<int(int, int)> square_error = [](int a, int b) 
     {
         auto e = a-b;
         return e*e;
@@ -179,8 +178,8 @@ void remove_staff(Mat& img, int pixel)
             {
                 img.at<unsigned char>(pixel, i) = 255; 
             }
-            else
-                cout << sum/n << endl;
+            //else
+                //cout << sum/n << endl;
         }  
     }
 }
@@ -254,7 +253,6 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
     {
         if (boxes_touching(last, box))
         {
-            //cout << "touching" << endl;
             auto y1 = std::max(box.rectangle.y + box.rectangle.height, last.rectangle.y + last.rectangle.height);
             auto x1 = std::max(box.rectangle.x + box.rectangle.width, last.rectangle.x + last.rectangle.width);
 
@@ -380,9 +378,8 @@ music_sheet::music_sheet (const std::string& filename)
     //imshow("B&W", gray_img);
     
     //Applies a fixed-level threshold to each array element.
-    adaptiveThreshold(gray_img, gray_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 99, 15);
-
-    //gray_img = gray_img > 40;
+    adaptiveThreshold(gray_img, gray_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 45, 12);
+    
     //Shows modified b&w image
     //imshow("Black and White with adjustments", gray_img);
 
@@ -396,10 +393,10 @@ music_sheet::music_sheet (const std::string& filename)
     vector<array<unsigned, 5>> lines = find_lines(red_lines_img, nolines_img);
 
     //Shows the image without lines
-    imshow("Without lines", nolines_img);
+    //imshow("Without lines", nolines_img);
 
     //Shows the found lines (in red)
-    imshow("Red Found Lines", red_lines_img);
+    //imshow("Red Found Lines", red_lines_img);
     
     vector<Box> boxes = find_boxes(nolines_img, lines);
 
@@ -408,8 +405,7 @@ music_sheet::music_sheet (const std::string& filename)
     size_t i = 0;
     for(auto& box: boxes) 
     {
-        //I need many colours for see the different boxes
-        //Scalar colour = Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255));
+        //Let's colour the boxes
         Scalar colour = Scalar(0, 255, 0);
         rectangle(boxes_img, box.rectangle.tl(), box.rectangle.br(), colour, 2, 8, 0);
         
@@ -420,7 +416,7 @@ music_sheet::music_sheet (const std::string& filename)
     //Shows the image with boxes
     imshow("Boxes", boxes_img);
 
-/*
+    //Prints the histogram, for taking the goods and use them later
     int y = 0;
     for(auto& box: boxes)
     {
@@ -432,7 +428,39 @@ music_sheet::music_sheet (const std::string& filename)
         cout << endl;
         y++;
     }
-*/
+    
+
+    vector<int> a_quarter_x = { 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 10, 11, 13, 14, 14, 12, 11, 11, 8, 5, 0 };
+    vector<int> a_quarter_y = { 0, 5, 7, 8, 9, 9, 9, 8, 9, 6, 5, 5, 0, 0, 0, 0 };
+    vector<int> violin_x = { 0, 2, 3, 6, 6, 7, 8, 6, 7, 5, 4, 4, 6, 6, 6, 6, 6, 7, 9, 9, 8, 9, 8, 8, 8, 9, 9, 9, 11, 9, 9, 9, 8, 8, 8, 8, 7, 17, 16, 20, 21, 21, 15, 15, 13, 13, 12, 13, 12, 11, 10, 10, 8, 10, 10, 12, 4, 3, 2, 2, 5, 7, 10, 11, 11, 11, 11, 11, 11, 9, 9, 9, 5, 0 };
+    vector<int> violin_y = { 0, 9, 8, 6, 6, 5, 6, 14, 14, 17, 18, 18, 17, 13, 16, 14, 16, 18, 16, 12, 12, 4, 3, 5, 6, 2, 0, 0, 0, 0 };
+    vector<int> an_half_x = { 0, 9, 9, 11, 12, 12, 13, 12, 11, 11, 11, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0 };
+    vector<int> an_half_y = { 0, 5, 7, 8, 8, 10, 10, 10, 10, 7, 6, 3, 0, 0 };
+    vector<int> pause_x = { 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 6, 9, 11, 12, 13, 13, 12, 11, 10, 9, 5, 0 };
+    vector<int> pause_y = { 0, 6, 7, 9, 9, 9, 9, 9, 8, 6, 5, 0, 0, 0, 0 };
+    vector<int> beat_x = { 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0 };
+    vector<int> beat_y = { 0, 0 };
+
+    float toll = 1.5;
+    int b = 0;
+    for(auto& box: boxes) 
+    {
+        cout << b << " : ";
+        //if (box.x_proj.size() != a_quarter_x.size() || box.y_proj.size() != a_quarter_y.size())
+            //cout << "diversissimi" << endl;
+        if ((similarity(box.x_proj, a_quarter_x)) <=toll && (similarity(box.y_proj, a_quarter_y)) <=toll)
+            cout << "piena";
+        if ((similarity(box.x_proj, an_half_x)) <=toll && (similarity(box.y_proj, an_half_y)) <=toll)
+            cout << "vuota";
+        if ((similarity(box.x_proj, violin_x)) <=toll && (similarity(box.y_proj, violin_y)) <=toll)
+            cout << "violino";
+        if ((similarity(box.x_proj, beat_x)) <=toll && (similarity(box.y_proj, beat_y)) <=toll)
+            cout << "barra";
+        if ((similarity(box.x_proj, pause_x)) <=toll && (similarity(box.y_proj, pause_y)) <=toll)
+            cout << "pausa";
+        cout  << endl;
+        b++;
+    }
 
     //TODO rimuovere
     waitKey();
