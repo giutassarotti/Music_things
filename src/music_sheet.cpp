@@ -401,9 +401,11 @@ music_sheet::music_sheet (const std::string& filename)
     
     vector<Box> boxes = find_boxes(nolines_img, lines);
 
+    //I need it if i wants to see coloured image (with green boxes over the figures)
     Mat boxes_img = nolines_img.clone();
     cvtColor(boxes_img, boxes_img, COLOR_BGR2BGRA);
-    size_t i = 0;
+    
+    //size_t i = 0;
     for(auto& box: boxes) 
     {
         //Let's colour the boxes
@@ -412,7 +414,7 @@ music_sheet::music_sheet (const std::string& filename)
         
         //Shows the single match
         //imshow(std::to_string(i), boxes_img(box.rectangle));
-        ++i;
+        //++i;
     }
     //Shows the image with boxes
     imshow("Boxes", boxes_img);
@@ -430,7 +432,6 @@ music_sheet::music_sheet (const std::string& filename)
         y++;
     }
     
-
     vector<int> a_quarter_x = { 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 10, 11, 13, 14, 14, 12, 11, 11, 8, 5, 0 };
     vector<int> a_quarter_y = { 0, 5, 7, 8, 9, 9, 9, 8, 9, 6, 5, 5, 0, 0, 0, 0 };
     vector<int> violin_x = { 0, 2, 3, 6, 6, 7, 8, 6, 7, 5, 4, 4, 6, 6, 6, 6, 6, 7, 9, 9, 8, 9, 8, 8, 8, 9, 9, 9, 11, 9, 9, 9, 8, 8, 8, 8, 7, 17, 16, 20, 21, 21, 15, 15, 13, 13, 12, 13, 12, 11, 10, 10, 8, 10, 10, 12, 4, 3, 2, 2, 5, 7, 10, 11, 11, 11, 11, 11, 11, 9, 9, 9, 5, 0 };
