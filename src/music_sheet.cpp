@@ -1,6 +1,9 @@
 #include "music_sheet.hpp"
 #include "opencv2/core/base.hpp"
 
+#include "nlohmann/json.hpp"
+
+#include <fstream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/photo.hpp>
@@ -140,7 +143,7 @@ auto similarity(const vector<int>& histogram1, const vector<int>& histogram2)
 {
     std::function<int(int, int)> square_error = [](int a, int b) 
     {
-        auto e = a-b;
+        float e = a-b;
         return e*e;
     };
     auto sum = std::transform_reduce(histogram1.begin(), histogram1.end(), histogram2.begin(), 0, std::plus<>(), square_error);
@@ -420,48 +423,39 @@ music_sheet::music_sheet (const std::string& filename)
     imshow("Boxes", boxes_img);
 
     //Prints the histogram, for taking the goods and use them later
-    int y = 0;
-    for(auto& box: boxes)
-    {
-        cout << y << "x ";
-        print_proj(box.x_proj);
-        cout << endl;
-        cout << y << "y ";
-        print_proj(box.y_proj);
-        cout << endl;
-        y++;
-    }
+    // int y = 0;
+    // for(auto& box: boxes)
+    // {
+    //     cout << y << "x ";
+    //     print_proj(box.x_proj);
+    //     cout << endl;
+    //     cout << y << "y ";
+    //     print_proj(box.y_proj);
+    //     cout << endl;
+    //     y++;
+    // }
     
-    vector<int> a_quarter_x = { 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 10, 11, 13, 14, 14, 12, 11, 11, 8, 5, 0 };
-    vector<int> a_quarter_y = { 0, 5, 7, 8, 9, 9, 9, 8, 9, 6, 5, 5, 0, 0, 0, 0 };
-    vector<int> violin_x = { 0, 2, 3, 6, 6, 7, 8, 6, 7, 5, 4, 4, 6, 6, 6, 6, 6, 7, 9, 9, 8, 9, 8, 8, 8, 9, 9, 9, 11, 9, 9, 9, 8, 8, 8, 8, 7, 17, 16, 20, 21, 21, 15, 15, 13, 13, 12, 13, 12, 11, 10, 10, 8, 10, 10, 12, 4, 3, 2, 2, 5, 7, 10, 11, 11, 11, 11, 11, 11, 9, 9, 9, 5, 0 };
-    vector<int> violin_y = { 0, 9, 8, 6, 6, 5, 6, 14, 14, 17, 18, 18, 17, 13, 16, 14, 16, 18, 16, 12, 12, 4, 3, 5, 6, 2, 0, 0, 0, 0 };
-    vector<int> an_half_x = { 0, 9, 9, 11, 12, 12, 13, 12, 11, 11, 11, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0 };
-    vector<int> an_half_y = { 0, 5, 7, 8, 8, 10, 10, 10, 10, 7, 6, 3, 0, 0 };
-    vector<int> pause_x = { 0, 11, 11, 11, 11, 11, 11, 0 };
-    vector<int> pause_y = { 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0, 0, 0 };
-    vector<int> beat_x = { 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0 };
-    vector<int> beat_y = { 0, 0 };
+    //TODO Leva sto schifo
+    std::ifstream json_file("file/models.json");
+    nlohmann::json json;
+    json_file >> json;
 
     float toll = 1.5;
     int b = 0;
+    
     for(auto& box: boxes) 
     {
-        cout << b << " : ";
-        //if (box.x_proj.size() != a_quarter_x.size() || box.y_proj.size() != a_quarter_y.size())
-            //cout << "diversissimi" << endl;
-        if ((similarity(box.x_proj, a_quarter_x)) <=toll && (similarity(box.y_proj, a_quarter_y)) <=toll)
-            cout << "piena";
-        if ((similarity(box.x_proj, an_half_x)) <=toll && (similarity(box.y_proj, an_half_y)) <=toll)
-            cout << "vuota";
-        if ((similarity(box.x_proj, violin_x)) <=toll && (similarity(box.y_proj, violin_y)) <=toll)
-            cout << "violino";
-        if ((similarity(box.x_proj, beat_x)) <=toll && (similarity(box.y_proj, beat_y)) <=toll)
-            cout << "barra";
-        if ((similarity(box.x_proj, pause_x)) <=toll && (similarity(box.y_proj, pause_y)) <=toll)
-            cout << "pausa";
-        cout  << endl;
-        b++;
+        for (auto& model: json["models"])
+        {
+            std::vector<int> x = model["x"];
+            std::vector<int> y = model["y"];
+
+            if (similarity(box.x_proj, x) <= toll && similarity(box.y_proj, y) <= toll)
+            {
+                cout << b << ' ' << model["type"] << endl;
+            }
+        }
+        ++b;
     }
 
     //TODO rimuovere

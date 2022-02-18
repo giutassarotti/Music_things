@@ -3,7 +3,7 @@ music_sheet_lib = static_library(
 	[
 		'music_sheet.cpp'
 	],
-	dependencies: [open_cv]
+	dependencies: [open_cv, json]
 )
 
 music_sheet = declare_dependency(
