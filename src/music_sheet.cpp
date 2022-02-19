@@ -423,24 +423,25 @@ music_sheet::music_sheet (const std::string& filename)
     imshow("Boxes", boxes_img);
 
     //Prints the histogram, for taking the goods and use them later
-    // int y = 0;
-    // for(auto& box: boxes)
-    // {
-    //     cout << y << "x ";
-    //     print_proj(box.x_proj);
-    //     cout << endl;
-    //     cout << y << "y ";
-    //     print_proj(box.y_proj);
-    //     cout << endl;
-    //     y++;
-    // }
+    int y = 0;
+    for(auto& box: boxes)
+    {
+        cout << y << "x ";
+        print_proj(box.x_proj);
+        cout << endl;
+        cout << y << "y ";
+        print_proj(box.y_proj);
+        cout << endl;
+        y++;
+    }
+
     
     //TODO Leva sto schifo
     std::ifstream json_file("file/models.json");
     nlohmann::json json;
     json_file >> json;
 
-    float toll = 1.5;
+    float toll = 1.75;
     int b = 0;
     
     for(auto& box: boxes) 
@@ -452,7 +453,7 @@ music_sheet::music_sheet (const std::string& filename)
 
             if (similarity(box.x_proj, x) <= toll && similarity(box.y_proj, y) <= toll)
             {
-                cout << b << ' ' << model["type"] << endl;
+                cout << b << ' ' << model["type"] << " " << similarity(box.x_proj, x) << " " << similarity(box.y_proj, y) << endl;
             }
         }
         ++b;
