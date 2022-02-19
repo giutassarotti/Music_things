@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>
+#include <limits>
 
 using namespace cv;
 
@@ -194,7 +195,7 @@ bool boxes_h_touching(const Box& left, const Box& right)
 
     //cout << left.rectangle.x << ' ' << x1 << ' ' << right.rectangle.x << ' ' << right.rectangle.width << ' ' << (x1 >= right.rectangle.x && x1 <= (right.rectangle.x + right.rectangle.width)) << '\n';
 
-    return x1 >= right.rectangle.x && left.rectangle.x <= (right.rectangle.x);
+    return (x1 >= right.rectangle.x) && (left.rectangle.x <= right.rectangle.x);
 }
 
 //If 2 boxes are touching vertically
@@ -204,7 +205,7 @@ bool boxes_v_touching(const Box& lowest, const Box& uppest)
 
     //cout << "v " << lowest.rectangle.x << ' ' << lowest.rectangle.y << ' ' << y1 << ' ' << uppest.rectangle.y << ' ' << uppest.rectangle.height << ' ' << (lowest.rectangle.y >= uppest.rectangle.y && y1 >= lowest.rectangle.y) << '\n';
 
-    return lowest.rectangle.y >= uppest.rectangle.y && y1 >= lowest.rectangle.y;
+    return (y1 >= lowest.rectangle.y) && (lowest.rectangle.y >= uppest.rectangle.y);
 }
 
 //If 2 boxes are touching
@@ -241,8 +242,8 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
     { 
         //approxPolyDP approximates a curve or a polygon with another curve/polygon with less vertices so that the distance between them is less or equal to the specified precision.
         approxPolyDP(Mat(contours[i]), contours_boxes[i], 3, true);
-        //boundingRect returns the minimal up-right integer rectangle containing the rotated rectangle
         
+        //boundingRect returns the minimal up-right integer rectangle containing the rotated rectangle
         Box element; 
         element.rectangle = boundingRect(Mat(contours_boxes[i]));
         boxes_set.insert(element);
@@ -278,7 +279,7 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
             //Shows every vertical projection (of the little boxes)
             //show_proj(std::to_string(boxes.size()), last.y_proj);
 
-            if (last.x_proj.size() >1 || last.y_proj.size() >1)
+            if (last.x_proj.size() >1)
                 boxes.push_back(last);
             last = box;
         }
@@ -315,8 +316,8 @@ vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
 
     for(int i=0; i<horiz_proj.size(); i++) 
     {
-        //One line is confirmed to be a line if it's at least the max line length/3.5
-        if(horiz_proj[i] > max/3.5) 
+        //One line is confirmed to be a line if it's at least the max line length/2
+        if(horiz_proj[i] > max/2) 
         {
             //Every line needs to be removed from the image
             remove_staff(nolines_img, i);
@@ -382,7 +383,12 @@ music_sheet::music_sheet (const std::string& filename)
     //imshow("B&W", gray_img);
     
     //Applies a fixed-level threshold to each array element.
-    adaptiveThreshold(gray_img, gray_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 45, 12);
+    
+    //fra martino
+    //adaptiveThreshold(gray_img, gray_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 45, 12);
+
+    //prova2
+    adaptiveThreshold(gray_img, gray_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 95, 12);
     
     //Shows modified b&w image
     //imshow("Black and White with adjustments", gray_img);
@@ -422,18 +428,18 @@ music_sheet::music_sheet (const std::string& filename)
     //Shows the image with boxes
     imshow("Boxes", boxes_img);
 
-    //Prints the histogram, for taking the goods and use them later
-    int y = 0;
-    for(auto& box: boxes)
-    {
-        cout << y << "x ";
-        print_proj(box.x_proj);
-        cout << endl;
-        cout << y << "y ";
-        print_proj(box.y_proj);
-        cout << endl;
-        y++;
-    }
+    // Prints the histogram, for taking the goods and use them later
+    // int y = 0;
+    // for(auto& box: boxes)
+    // {
+    //     cout << y << "x ";
+    //     print_proj(box.x_proj);
+    //     cout << endl;
+    //     cout << y << "y ";
+    //     print_proj(box.y_proj);
+    //     cout << endl;
+    //     y++;
+    // }
 
     
     //TODO Leva sto schifo
@@ -441,21 +447,36 @@ music_sheet::music_sheet (const std::string& filename)
     nlohmann::json json;
     json_file >> json;
 
-    float toll = 1.75;
+    //float toll = 1.75;
     int b = 0;
+
+    float min;
+    string type;
     
     for(auto& box: boxes) 
     {
+        min = std::numeric_limits<float>::max();
         for (auto& model: json["models"])
         {
-            std::vector<int> x = model["x"];
-            std::vector<int> y = model["y"];
-
-            if (similarity(box.x_proj, x) <= toll && similarity(box.y_proj, y) <= toll)
-            {
-                cout << b << ' ' << model["type"] << " " << similarity(box.x_proj, x) << " " << similarity(box.y_proj, y) << endl;
-            }
+            vector<int> x = model["x"];
+            vector<int> y = model["y"];
+            
+            if ((similarity(box.x_proj, x) + similarity(box.y_proj, y)) < min)
+                {
+                    min = (similarity(box.x_proj, x) + similarity(box.y_proj, y));
+                    type = model["type"];
+                }
+            // if (similarity(box.x_proj, x) <= toll && similarity(box.y_proj, y) <= toll)
+            // {
+            //     cout << b << " " << model["type"] << " " << similarity(box.x_proj, x) << " " << similarity(box.y_proj, y) << endl;
+            // }
+            // else
+            // {
+            //     cout << b << " no " << model["type"] << " " << similarity(box.x_proj, x) << " " << similarity(box.y_proj, y) << endl;
+            // }
         }
+
+        cout << b << " " << type << endl;
         ++b;
     }
 
