@@ -474,7 +474,8 @@ music_sheet::music_sheet (const std::string& filename)
     int b = 0;
 
     float min;
-    string type;
+    string type, key;
+    int num, den;
     
     for(auto& box: boxes) 
     {
@@ -491,18 +492,24 @@ music_sheet::music_sheet (const std::string& filename)
             {
                 min = distance_;
                 type = model["type"];
+                
+                if (type.compare("note")==0 || type.compare("pause")==0)
+                {   
+                    num = model["time"]["num"];
+                    den = model["time"]["den"];
+                }
+                if (type.compare("key")==0)
+                {   
+                    key = model["key"];
+                }
             }
-            // if (distance(box.x_proj, x) <= toll && distance(box.y_proj, y) <= toll)
-            // {
-            //     cout << b << " " << model["type"] << " " << distance(box.x_proj, x) << " " << distance(box.y_proj, y) << endl;
-            // }
-            // else
-            // {
-            //     cout << b << " no " << model["type"] << " " << distance(box.x_proj, x) << " " << distance(box.y_proj, y) << endl;
-            // }
         }
-
-        cout << b << " " << type << endl;
+        cout << b << ' ' << type;
+        if (type.compare("note")==0 || type.compare("pause")==0)
+            cout << ' ' << num << " / " << den;
+        if (type.compare("key")==0)
+            cout << ' ' << key;
+        cout << endl;
         ++b;
     }
 
