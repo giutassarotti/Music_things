@@ -2,6 +2,6 @@
 
 using music::note;
 
-note::note (clef c, short p, time l, scale s):
-	length{l}, scale_{s}
+note::note (basic_note n, time l, scale s):
+	basic_note_{n}, length{l}, scale_{s}
 {}

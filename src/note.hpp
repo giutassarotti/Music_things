@@ -9,26 +9,26 @@
 
 namespace music
 {
-	// enum class basic_note
-    // {
-    //     DO,
-    //     RE,
-    //     MI,
-    //     FA,
-    //     SOL,
-    //     LA,
-    //     SI
-    // };
+	enum class basic_note
+    {
+        DO,
+        RE,
+        MI,
+        FA,
+        SOL,
+        LA,
+        SI
+    };
 
 	struct note
 	{
-		std::string basic_note_;	// es DO
+		basic_note basic_note_;	    // es DO
 		short which_basic_note;		// es 2, quindi do2 totale
 
         time length;				//lunghezza
         scale scale_;
 
-		note(clef c, short p, time l, scale s);
+		note(basic_note n, time l, scale s);
 	};
 }
 

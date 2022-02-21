@@ -218,7 +218,7 @@ bool boxes_h_touching(const Box& left, const Box& right)
 
     //cout << left.rectangle.x << ' ' << x1 << ' ' << right.rectangle.x << ' ' << right.rectangle.width << ' ' << (x1 >= right.rectangle.x && x1 <= (right.rectangle.x + right.rectangle.width)) << '\n';
 
-    return (x1 >= right.rectangle.x) && (left.rectangle.x <= right.rectangle.x);
+    return (x1 > right.rectangle.x) && (left.rectangle.x < right.rectangle.x);
 }
 
 //If 2 boxes are touching vertically
@@ -228,10 +228,11 @@ bool boxes_v_touching(const Box& lowest, const Box& uppest)
 
     //cout << "v " << lowest.rectangle.x << ' ' << lowest.rectangle.y << ' ' << y1 << ' ' << uppest.rectangle.y << ' ' << uppest.rectangle.height << ' ' << (lowest.rectangle.y >= uppest.rectangle.y && y1 >= lowest.rectangle.y) << '\n';
 
-    return (y1 >= lowest.rectangle.y) && (lowest.rectangle.y >= uppest.rectangle.y);
+    return (y1 > lowest.rectangle.y) && (lowest.rectangle.y > uppest.rectangle.y);
 }
 
 //If 2 boxes are touching
+//TODO i cosi dentro mangiano i grossi
 bool boxes_touching(const Box& left, const Box& right)
 {
     if (boxes_v_touching(left, right) || boxes_v_touching(right, left))
@@ -270,7 +271,12 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
         Box element; 
         element.rectangle = boundingRect(Mat(contours_boxes[i]));
         boxes_set.insert(element);
+
+        // Scalar colour = Scalar(0, 255, 0);
+        // rectangle(boxes_img, element.rectangle.tl(), element.rectangle.br(), colour, 2, 8, 0);
     }
+
+    //imshow("tutti",boxes_img);
 
     //Removing elements that are not inside the sheet
     std::copy_if(boxes_set.begin(), boxes_set.end(), std::inserter(boxes_tmp, boxes_tmp.end()), std::bind(&Box_Comparator::box_matching, &comparator, std::placeholders::_1));
@@ -392,12 +398,12 @@ vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
 
 void find_line_note(float x, vector<int> x_proj, vector<array<unsigned, 5>> lines)
 {
-    unsigned max = max_element(std::begin(x_proj), std::end(x_proj));
+    unsigned max = *max_element(x_proj.begin(), x_proj.end());
 
     unsigned position = x + max;
 
     for(auto& l: lines)
-        for(auto& ll: llines)
+        for(auto& ll: l)
             if (ll == position)
                 cout << ll;
 }
@@ -483,7 +489,7 @@ music_sheet::music_sheet (const std::string& filename)
     json_file >> json;
 
     //things in the json
-    string type, key, wich_one;
+    string type, key, wich_one, dir;
     int num, den;
     
     //things for the for cicle
@@ -513,6 +519,7 @@ music_sheet::music_sheet (const std::string& filename)
                 }
                 if (type.compare("note")==0)
                 {
+                    dir = model["direction"];
                     find_line_note(box.rectangle.x, box.x_proj, lines);
                 }
                 if (type.compare("key")==0)
@@ -539,6 +546,10 @@ music_sheet::music_sheet (const std::string& filename)
         if (type.compare("note")==0 || type.compare("pause")==0)
         {
             cout << ' ' << num << " / " << den;
+        }
+        if (type == "note")
+        {
+            cout << ' ' << dir;
         }
         
         cout << endl;

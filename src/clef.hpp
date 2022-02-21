@@ -3,24 +3,27 @@
 
 namespace music
 {
-    enum class basic_clef
-    {
-        violin,
-        soprano,
-        mezzo_soprano,
-        contralto,
-        tenor,
-        baritone,
-        bass
-    };
+    // enum class basic_clef
+    // {
+    //     violin,
+    //     soprano,
+    //     mezzo_soprano,
+    //     contralto,
+    //     tenor,
+    //     baritone,
+    //     bass
+    // };
 
-    struct clef
+    class clef
 	{
-		basic_clef basic_clef_;	// es violin
+        public:
+		    //basic_clef basic_clef_;	// es violin
 
-		clef(basic_clef basic_clef_);
-        note violin();
-        //note bass();
+		    //clef(basic_clef basic_clef_);
+            clef() = delete;
+            
+            static note violin(short position, time length, scale scal);
+            //note bass();
 	};
 }
 
