@@ -3,7 +3,7 @@
 
 namespace music
 {
-    enum class clef
+    enum class basic_clef
     {
         violin,
         soprano,
@@ -13,6 +13,15 @@ namespace music
         baritone,
         bass
     };
+
+    struct clef
+	{
+		basic_clef basic_clef_;	// es violin
+
+		clef(basic_clef basic_clef_);
+        note violin();
+        //note bass();
+	};
 }
 
 #endif

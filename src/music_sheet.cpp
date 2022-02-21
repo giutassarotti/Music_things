@@ -390,6 +390,18 @@ vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
     return lines;
 }
 
+void find_line_note(float x, vector<int> x_proj, vector<array<unsigned, 5>> lines)
+{
+    unsigned max = max_element(std::begin(x_proj), std::end(x_proj));
+
+    unsigned position = x + max;
+
+    for(auto& l: lines)
+        for(auto& ll: llines)
+            if (ll == position)
+                cout << ll;
+}
+
 music_sheet::music_sheet (const std::string& filename)	
 {
     //Try to read the original colour source image.
@@ -416,10 +428,8 @@ music_sheet::music_sheet (const std::string& filename)
     //Shows modified b&w image
     //imshow("Black and White with adjustments", gray_img);
 
-    //I'll need a copy for a test (finding lines)
+    //I'll need a copy for a test (finding lines) and an image without lines, without modify the original
     Mat red_lines_img = colour_img.clone();
-
-    //I need an image without lines, without modify the original
     Mat nolines_img = gray_img.clone();
 
     //Find lines
@@ -427,7 +437,6 @@ music_sheet::music_sheet (const std::string& filename)
 
     //Shows the image without lines
     //imshow("Without lines", nolines_img);
-
     //Shows the found lines (in red)
     //imshow("Red Found Lines", red_lines_img);
     
@@ -437,7 +446,10 @@ music_sheet::music_sheet (const std::string& filename)
     Mat boxes_img = nolines_img.clone();
     cvtColor(boxes_img, boxes_img, COLOR_BGR2BGRA);
     
+    //Need it if i want to see single matches
     //size_t i = 0;
+    
+    //For drawing rectangles on the matches
     for(auto& box: boxes) 
     {
         //Let's colour the boxes
@@ -448,7 +460,7 @@ music_sheet::music_sheet (const std::string& filename)
         //imshow(std::to_string(i), boxes_img(box.rectangle));
         //++i;
     }
-    //Shows the image with boxes
+    //Shows the image with rectangles
     imshow("Boxes", boxes_img); 
 
     // Prints the histogram, for taking the goods and use them later
@@ -470,13 +482,14 @@ music_sheet::music_sheet (const std::string& filename)
     nlohmann::json json;
     json_file >> json;
 
-    //float toll = 1.75;
-    int b = 0;
-
-    float min;
-    string type, key;
+    //things in the json
+    string type, key, wich_one;
     int num, den;
     
+    //things for the for cicle
+    float min;
+    int b = 0;
+
     for(auto& box: boxes) 
     {
         min = std::numeric_limits<float>::max();
@@ -498,18 +511,38 @@ music_sheet::music_sheet (const std::string& filename)
                     num = model["time"]["num"];
                     den = model["time"]["den"];
                 }
+                if (type.compare("note")==0)
+                {
+                    find_line_note(box.rectangle.x, box.x_proj, lines);
+                }
                 if (type.compare("key")==0)
                 {   
                     key = model["key"];
                 }
+                if (type.compare("alteration")==0)
+                {   
+                    wich_one = model["wich_one"];
+                }
             }
         }
+
         cout << b << ' ' << type;
-        if (type.compare("note")==0 || type.compare("pause")==0)
-            cout << ' ' << num << " / " << den;
         if (type.compare("key")==0)
+        {
             cout << ' ' << key;
+        }
+        if (type.compare("alteration")==0)
+        {
+            cout << ' ' << wich_one;
+        }
+            
+        if (type.compare("note")==0 || type.compare("pause")==0)
+        {
+            cout << ' ' << num << " / " << den;
+        }
+        
         cout << endl;
+
         ++b;
     }
 

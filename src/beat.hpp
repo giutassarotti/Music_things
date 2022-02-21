@@ -13,13 +13,12 @@ namespace music
 	{
 		private:
 			time time_;
-			unsigned int position;
 			clef clef_;
 			std::vector <scale> scale_;
 			std::vector <note> notes;
 
 		public:
-			beat(time t, unsigned int p, clef c, scale s);
+			beat(time t, clef c, scale s);
 			bool control_himself();
 	};
 }
