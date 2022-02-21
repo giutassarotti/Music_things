@@ -139,18 +139,41 @@ void vertical_projection(Mat& img, vector<int>& histogram)
     }
 }
 
-//Calculates similarity between 2 histograms
-auto similarity(const vector<int>& histogram1, const vector<int>& histogram2)
+//Calculates distance between 2 histograms
+float distance(const vector<int>& histogram1_x, const vector<int>& histogram1_y, const vector<int>& histogram2_x, const vector<int>& histogram2_y)
 {
-    std::function<int(int, int)> square_error = [](int a, int b) 
+    float proportions1 = static_cast<float>(histogram1_x.size())/histogram1_y.size();
+    float proportions2 = static_cast<float>(histogram2_x.size())/histogram2_y.size();
+    
+    Mat x_h = Mat(histogram2_x);
+    Mat y_h = Mat(histogram2_y);
+
+    resize(x_h, x_h, Mat(histogram1_x).size(), 0, 0, INTER_NEAREST);
+    resize(y_h, y_h, Mat(histogram1_y).size(), 0, 0, INTER_NEAREST);
+
+    vector<int> histogram2_x_scaled;
+    vector<int> histogram2_y_scaled;
+
+    x_h.col(0).copyTo(histogram2_x_scaled);
+    y_h.col(0).copyTo(histogram2_y_scaled);
+
+    std::function<int(int, int)> square_distance = [](int a, int b) 
     {
         float e = a-b;
         return e*e;
     };
-    auto sum = std::transform_reduce(histogram1.begin(), histogram1.end(), histogram2.begin(), 0, std::plus<>(), square_error);
-    auto error = std::sqrt(sum / histogram1.size());
+    
+    auto distance_x = std::sqrt(
+        std::transform_reduce(histogram1_x.begin(), histogram1_x.end(), histogram2_x_scaled.begin(), 0, std::plus<>(), square_distance) / 
+        histogram1_x.size()
+    );
 
-    return error;
+    auto distance_y = std::sqrt(
+        std::transform_reduce(histogram1_y.begin(), histogram1_y.end(), histogram2_y_scaled.begin(), 0, std::plus<>(), square_distance) / 
+        histogram1_y.size()
+    );
+
+    return std::max(proportions1/proportions2, proportions2/proportions1) * (distance_x + distance_y);
 }
 
 //Removes the staff from the image (a single found pixel line)
@@ -456,23 +479,26 @@ music_sheet::music_sheet (const std::string& filename)
     for(auto& box: boxes) 
     {
         min = std::numeric_limits<float>::max();
+
         for (auto& model: json["models"])
         {
-            vector<int> x = model["x"];
-            vector<int> y = model["y"];
+            vector<int> x = (model["x"]);
+            vector<int> y = (model["y"]);
+
+           double distance_ = distance(box.x_proj, box.y_proj, x, y);
             
-            if ((similarity(box.x_proj, x) + similarity(box.y_proj, y)) < min)
-                {
-                    min = (similarity(box.x_proj, x) + similarity(box.y_proj, y));
-                    type = model["type"];
-                }
-            // if (similarity(box.x_proj, x) <= toll && similarity(box.y_proj, y) <= toll)
+            if (distance_ < min)
+            {
+                min = distance_;
+                type = model["type"];
+            }
+            // if (distance(box.x_proj, x) <= toll && distance(box.y_proj, y) <= toll)
             // {
-            //     cout << b << " " << model["type"] << " " << similarity(box.x_proj, x) << " " << similarity(box.y_proj, y) << endl;
+            //     cout << b << " " << model["type"] << " " << distance(box.x_proj, x) << " " << distance(box.y_proj, y) << endl;
             // }
             // else
             // {
-            //     cout << b << " no " << model["type"] << " " << similarity(box.x_proj, x) << " " << similarity(box.y_proj, y) << endl;
+            //     cout << b << " no " << model["type"] << " " << distance(box.x_proj, x) << " " << distance(box.y_proj, y) << endl;
             // }
         }
 
