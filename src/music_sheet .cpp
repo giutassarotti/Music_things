@@ -449,7 +449,7 @@ music_sheet::music_sheet (const std::string& filename)
         //++i;
     }
     //Shows the image with boxes
-    imshow("Boxes", boxes_img);
+    imshow("Boxes", boxes_img); 
 
     // Prints the histogram, for taking the goods and use them later
     // int y = 0;
