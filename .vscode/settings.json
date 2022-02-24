@@ -20,6 +20,8 @@
         "tuple": "cpp",
         "type_traits": "cpp",
         "string": "cpp",
-        "complex": "cpp"
+        "complex": "cpp",
+        "numeric": "cpp",
+        "cmath": "cpp"
     }
 }

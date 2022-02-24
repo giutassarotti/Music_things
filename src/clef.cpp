@@ -1,7 +1,6 @@
 #include "clef.hpp"
 #include "note.hpp"
 
-#include <string>
 #include <vector>
 
 using music::note;

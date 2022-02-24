@@ -17,6 +17,8 @@
 #include <numeric>
 #include <limits>
 
+#include "note.hpp"
+
 using namespace cv;
 
 using std::set;
@@ -598,15 +600,24 @@ music_sheet::music_sheet (const std::string& filename)
         if (type == "alteration")
         {
             cout << ' ' << wich_one;
+            scale scal(wich_one);
         }   
-        if (type == "note" || type == "pause")
+        if (type == "pause")
         {
             cout << ' ' << num << " / " << den;
+            time t(num, den);
         }
         if (type == "note")
         {
+            cout << ' ' << num << " / " << den;
             line = find_line_note(box.rectangle.y, box.rectangle.height, lines, dir);
             cout << ' ' << dir << ' ' << line;
+            if (key == "violin")
+                {
+                    note n = violin(line, t, "Natural");
+
+                    cout << n.basic_note_;
+                }
         }
         
         cout << endl;
