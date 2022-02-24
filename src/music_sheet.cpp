@@ -38,7 +38,7 @@ struct Box
 
 struct Box_Comparator 
 {
-    vector<array<unsigned, 5>> lines;
+    vector<array<int, 5>> lines;
 
     bool box_matching(const Box& box)
     {
@@ -53,7 +53,7 @@ struct Box_Comparator
         return false;
     }
 
-    inline bool box_inside_lines(const Box& box, const array<unsigned, 5>& lines) const
+    inline bool box_inside_lines(const Box& box, const array<int, 5>& lines) const
     {
         return box.rectangle.y <= lines.back() && (box.rectangle.y + box.rectangle.height >= lines.front());
     }
@@ -72,7 +72,7 @@ struct Box_Comparator
 
             if (l_match && r_match)
             {
-                return lhs.rectangle.x < rhs.rectangle.x;
+                return lhs.rectangle.x <= rhs.rectangle.x;
             }
         }
 
@@ -237,14 +237,14 @@ bool boxes_touching(const Box& left, const Box& right)
 {
     if (boxes_v_touching(left, right) || boxes_v_touching(right, left))
     {
-        return boxes_h_touching(left, right);
+        return boxes_h_touching(left, right) || boxes_h_touching(right, left);
     }
 
     return false;
 }
 
 //Finds the figures and draw a rectangle on them
-vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
+vector<Box> find_boxes(Mat boxes_img, const vector<array<int, 5>>& lines)
 {
     static RNG rng(12385);
     
@@ -257,6 +257,8 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
     //This function finds contours in a binary image.
     vector<vector<Point>> contours; //Each contour is stored as a vector of points
     vector<Vec4i> hierarchy;        //Optional output vector containing information about the image topology.
+
+
     findContours(boxes_img, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0));
 
     //Input vector of a 2D point, the final boxes and the final small images (resize after the contours function)
@@ -271,19 +273,24 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
         Box element; 
         element.rectangle = boundingRect(Mat(contours_boxes[i]));
         boxes_set.insert(element);
-
-        // Scalar colour = Scalar(0, 255, 0);
-        // rectangle(boxes_img, element.rectangle.tl(), element.rectangle.br(), colour, 2, 8, 0);
     }
-
-    //imshow("tutti",boxes_img);
 
     //Removing elements that are not inside the sheet
     std::copy_if(boxes_set.begin(), boxes_set.end(), std::inserter(boxes_tmp, boxes_tmp.end()), std::bind(&Box_Comparator::box_matching, &comparator, std::placeholders::_1));
 
+    // for (auto& element: boxes_set)
+    // {
+    //     Scalar colour = Scalar(0, 255, 0);
+    //     rectangle(boxes_img, element.rectangle.tl(), element.rectangle.br(), colour, 2, 8, 0);
+    // }
+
+    // imshow("tutti",boxes_img);
+
     Box last = boxes_tmp.front();
-    for (auto& box: boxes_tmp)
+    for (size_t i = 1; i < boxes_tmp.size(); ++i)
     {
+        auto& box = boxes_tmp[i];
+
         if (boxes_touching(last, box))
         {
             auto y1 = std::max(box.rectangle.y + box.rectangle.height, last.rectangle.y + last.rectangle.height);
@@ -317,7 +324,7 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<unsigned, 5>>& lines)
     return boxes;
 }
 
-vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
+vector<array<int, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
 {
     //Projection for find staff's lines
     vector<int> horiz_proj; 
@@ -327,7 +334,7 @@ vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
     vector<int> staff_positions;
     
     //The final lines
-    vector<array<unsigned, 5>> lines;
+    vector<array<int, 5>> lines;
     int n_group = 0;   //number of 5-group lines
     int n_lines = 0;   //every 5 lines is a group
 
@@ -351,7 +358,7 @@ vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
             //Every line needs to be removed from the image
             remove_staff(nolines_img, i);
 
-            if (n_lines == 0)
+            if (n_lines == 0 && n_pixel == 0)
             {
                 lines.emplace_back();
                 n_group++;
@@ -396,16 +403,64 @@ vector<array<unsigned, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
     return lines;
 }
 
-void find_line_note(float x, vector<int> x_proj, vector<array<unsigned, 5>> lines)
+int find_line_note(int y, int height, const vector<array<int, 5>>& lines, const string& dir)
 {
-    unsigned max = *max_element(x_proj.begin(), x_proj.end());
+    //y is the  rect's y of the top left corner
 
-    unsigned position = x + max;
+    //no
+    //unsigned max = *max_element(x_proj.begin(), x_proj.end());
+    //unsigned position = y + max;
 
-    for(auto& l: lines)
-        for(auto& ll: l)
-            if (ll == position)
-                cout << ll;
+    //the ball is down, watching up
+    if (dir == "up")
+    {
+        int where_it_is = y + height;
+
+        for(auto& l: lines)
+        {
+            for(int i = 0; i<4; i++)
+            {
+                int cazzo = abs(l[i] - where_it_is);
+                if (abs(l[i] - where_it_is) < 5) //linea sopra
+                    return i*2 - 1;
+                if (abs(((l[i] + l[i+1])/2) - where_it_is) < 5) //spazio centro
+                    return i*2;
+                if (abs(l[i+1] - where_it_is) < 5) //linea sotto
+                    return i*2 + 1;
+            }
+
+            int interline_space = l[4] - l[3];
+            if (abs(l[4] + interline_space - where_it_is) < 5)
+                return 9;
+            if (abs(l[4] + interline_space/2 - where_it_is) < 5)
+                return 8;
+        }
+    }
+    else //the ball is up, watching down
+    {
+        int where_it_is = y;
+
+        for(auto& l: lines)
+        {
+            int interline_space = l[1] - l[0];
+            if (abs(l[0] - interline_space - where_it_is) < 5)
+                return -1;
+            if (abs(l[0] - interline_space/2 - where_it_is) < 5)
+                return 0;
+
+            for(int i = 0; i<5; i++)
+            {
+                if (abs(l[i] - where_it_is) < 5) //linea sopra
+                    return i*2 + 1;
+                if (abs(((l[i] + l[i+1])/2) - where_it_is) < 5) //spazio centro
+                    return i*2 + 2;
+                if (abs(l[i+1] - where_it_is) < 5) //linea sotto
+                    return i*2 + 3;
+            }
+        }
+    }
+
+    return 0x0FFFFFFF;
 }
 
 music_sheet::music_sheet (const std::string& filename)	
@@ -439,7 +494,7 @@ music_sheet::music_sheet (const std::string& filename)
     Mat nolines_img = gray_img.clone();
 
     //Find lines
-    vector<array<unsigned, 5>> lines = find_lines(red_lines_img, nolines_img);
+    vector<array<int, 5>> lines = find_lines(red_lines_img, nolines_img);
 
     //Shows the image without lines
     //imshow("Without lines", nolines_img);
@@ -483,7 +538,7 @@ music_sheet::music_sheet (const std::string& filename)
     // }
 
     
-    //TODO Leva sto schifo
+    //TODO da togliere
     std::ifstream json_file("file/models.json");
     nlohmann::json json;
     json_file >> json;
@@ -496,60 +551,69 @@ music_sheet::music_sheet (const std::string& filename)
     float min;
     int b = 0;
 
+    int line;
+
     for(auto& box: boxes) 
     {
         min = std::numeric_limits<float>::max();
-
-        for (auto& model: json["models"])
+        
+        if (static_cast<float>(box.rectangle.width)/box.rectangle.height >= 1.0f && box.rectangle.height > 20)
         {
-            vector<int> x = (model["x"]);
-            vector<int> y = (model["y"]);
-
-           double distance_ = distance(box.x_proj, box.y_proj, x, y);
-            
-            if (distance_ < min)
+            type = "multinote";
+        }
+        else
+        {
+            for (auto& model: json["models"])
             {
-                min = distance_;
-                type = model["type"];
+                vector<int> x = (model["x"]);
+                vector<int> y = (model["y"]);
+
+                double distance_ = distance(box.x_proj, box.y_proj, x, y);
                 
-                if (type.compare("note")==0 || type.compare("pause")==0)
-                {   
-                    num = model["time"]["num"];
-                    den = model["time"]["den"];
-                }
-                if (type.compare("note")==0)
+                if (distance_ < min)
                 {
-                    dir = model["direction"];
-                    find_line_note(box.rectangle.x, box.x_proj, lines);
-                }
-                if (type.compare("key")==0)
-                {   
-                    key = model["key"];
-                }
-                if (type.compare("alteration")==0)
-                {   
-                    wich_one = model["wich_one"];
+                    min = distance_;
+                    type = model["type"];
+                    
+                    if (type == "note" || type == "pause")
+                    {   
+                        num = model["time"]["num"];
+                        den = model["time"]["den"];
+                    }
+                    if (type == "note")
+                    {
+                        dir = model["direction"];
+                    }
+                    if (type == "key")
+                    {   
+                        key = model["key"];
+                    }
+                    if (type == "alteration")
+                    {   
+                        wich_one = model["wich_one"];
+                    }
                 }
             }
         }
 
         cout << b << ' ' << type;
-        if (type.compare("key")==0)
+        
+        if (type == "key")
         {
             cout << ' ' << key;
         }
-        if (type.compare("alteration")==0)
+        if (type == "alteration")
         {
             cout << ' ' << wich_one;
-        }
-            
-        if (type.compare("note")==0 || type.compare("pause")==0)
+        }   
+        if (type == "note" || type == "pause")
         {
             cout << ' ' << num << " / " << den;
         }
         if (type == "note")
         {
-            cout << ' ' << dir;
+            line = find_line_note(box.rectangle.y, box.rectangle.height, lines, dir);
+            cout << ' ' << dir << ' ' << line;
         }
         
         cout << endl;
