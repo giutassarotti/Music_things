@@ -418,22 +418,17 @@ int find_line_note(int y, int height, const vector<array<int, 5>>& lines, const 
 
         for(auto& l: lines)
         {
-            for(int i = 0; i<4; i++)
+            float interline_space = l[4] - l[3];
+            for(int i = 0; i<5; i++)
             {
-                int cazzo = abs(l[i] - where_it_is);
                 if (abs(l[i] - where_it_is) < 5) //linea sopra
                     return i*2 - 1;
-                if (abs(((l[i] + l[i+1])/2) - where_it_is) < 5) //spazio centro
+                if (abs(l[i] + interline_space/2.f - where_it_is) < 5) //spazio centro
                     return i*2;
-                if (abs(l[i+1] - where_it_is) < 5) //linea sotto
-                    return i*2 + 1;
+                if (i == 4)
+                    if (abs(l[i] + interline_space - where_it_is) < 5)
+                        return i*2 + 1;
             }
-
-            int interline_space = l[4] - l[3];
-            if (abs(l[4] + interline_space - where_it_is) < 5)
-                return 9;
-            if (abs(l[4] + interline_space/2 - where_it_is) < 5)
-                return 8;
         }
     }
     else //the ball is up, watching down
@@ -442,20 +437,18 @@ int find_line_note(int y, int height, const vector<array<int, 5>>& lines, const 
 
         for(auto& l: lines)
         {
-            int interline_space = l[1] - l[0];
-            if (abs(l[0] - interline_space - where_it_is) < 5)
-                return -1;
-            if (abs(l[0] - interline_space/2 - where_it_is) < 5)
-                return 0;
-
+            float interline_space = l[3] - l[2];
+            
             for(int i = 0; i<5; i++)
             {
-                if (abs(l[i] - where_it_is) < 5) //linea sopra
-                    return i*2 + 1;
-                if (abs(((l[i] + l[i+1])/2) - where_it_is) < 5) //spazio centro
-                    return i*2 + 2;
-                if (abs(l[i+1] - where_it_is) < 5) //linea sotto
-                    return i*2 + 3;
+                if (abs(l[i] - interline_space - where_it_is) < 5) //linea sopra
+                    return i*2 -1;
+                if (abs(l[i] - interline_space/2.f - where_it_is) < 5) //spazio centro
+                    return i*2;
+                if (i==4)
+                    if (abs(l[i] - where_it_is) < 5) //spazio centro
+                        return i*2 + 1;
+                
             }
         }
     }
@@ -476,7 +469,7 @@ music_sheet::music_sheet (const std::string& filename)
     Mat gray_img;
     cvtColor(colour_img, gray_img, COLOR_RGB2GRAY);
     //Shows original b&w image
-    //imshow("B&W", gray_img);
+    imshow("B&W", gray_img);
     
     //Applies a fixed-level threshold to each array element.
     

@@ -17,6 +17,7 @@ note clef::violin(short position, time length, scale scal)
     //From the lowest line to the uppest line
     std::vector <basic_note> notes = 
     {
+        basic_note::SOL,
         basic_note::FA,
         basic_note::MI,
         basic_note::RE,
@@ -25,13 +26,14 @@ note clef::violin(short position, time length, scale scal)
         basic_note::LA,
         basic_note::SOL,
         basic_note::FA, 
-        basic_note::MI
+        basic_note::MI,
+        basic_note::RE
     };
 
     //TODO note fori dal balcone
     //TODO do1 do2 do-tanti
 
-    note nota(notes[position], length, scal);
+    note nota(notes[position-1], length, scal);
 
     return nota;
 }
