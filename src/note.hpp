@@ -1,11 +1,10 @@
 #ifndef NOTE_HPP
 #define NOTE_HPP
 
-#include "time.hpp"
-#include "clef.hpp"
-#include "scale.hpp"
+#include <ostream>
 
-#include <string>
+#include "time.hpp"
+#include "scale.hpp"
 
 namespace music
 {
@@ -20,16 +19,36 @@ namespace music
         SI
     };
 
-	struct note
+    struct figure
+    {
+        time length;				//lunghezza
+
+        figure(time l);
+    };
+
+	struct note: figure
 	{
 		basic_note basic_note_;	    // es DO
-		short which_basic_note;		// es 2, quindi do2 totale
+		//short which_basic_note;	// es 2, quindi do2 totale
 
-        time length;				//lunghezza
         scale scale_;
 
 		note(basic_note n, time l, scale s);
 	};
+
+    struct pause: figure
+    {
+        pause(time l);
+    };
 }
+
+//Prints the stupid enum class for basic_notes
+std::ostream& operator<<(std::ostream& out, const music::basic_note note);
+
+//Prints the note
+std::ostream& operator<<(std::ostream& out, const music::note& note);
+
+//Prints the pause
+std::ostream& operator<<(std::ostream& out, const music::pause& pause);
 
 #endif

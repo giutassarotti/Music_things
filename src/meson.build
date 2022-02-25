@@ -1,7 +1,12 @@
 music_sheet_lib = static_library(
 	'music_sheet', 
 	[
-		'music_sheet.cpp'
+		'music_sheet.cpp',
+		'beat.cpp',
+		'note.cpp',
+		'clef.cpp',
+		'scale.cpp',
+		'time.cpp'
 	],
 	dependencies: [open_cv, json]
 )

@@ -8,16 +8,14 @@ time::time (unsigned n, unsigned d):
 	numerator{n}, denominator{d}
 {}
 
-
-
-time time::operator+(const time& other)
+music::time time::operator+(const time& other)
 {
-    time result;
+   unsigned den = std::lcm(other.denominator, this->denominator);
+   unsigned num = (other.numerator*(den/other.denominator) + this->numerator*(den/this->denominator));
 
-    result.denominator = std::lcm(other.denominator, this->denominator);
-    result.numerator = (other.numerator*(result.denominator/other.denominator) + this->numerator*(result.denominator/this->denominator));
+   time result(num, den);
 
-    return result;
+   return result;
 }
 
 bool time::operator==(const time& other)
@@ -25,7 +23,13 @@ bool time::operator==(const time& other)
    return (other.denominator == this->denominator)&&(other.numerator, this->numerator);
 }
 
-bool time::operator==(const time& other)
+bool time::operator!=(const time& other)
 {
    return !(*this==other);
+}
+
+//Prints the time
+std::ostream& operator<<(std::ostream& out, const music::time& time)
+{
+	return out << time.numerator << " / " << time.denominator;
 }

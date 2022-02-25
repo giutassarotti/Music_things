@@ -1,6 +1,10 @@
 #ifndef CLEF_HPP
 #define CLEF_HPP
 
+#include "time.hpp"
+#include "scale.hpp"
+#include "note.hpp"
+
 namespace music
 {
     // enum class basic_clef

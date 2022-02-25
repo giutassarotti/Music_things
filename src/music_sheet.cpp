@@ -18,6 +18,8 @@
 #include <limits>
 
 #include "note.hpp"
+#include "scale.hpp"
+#include "clef.hpp"
 
 using namespace cv;
 
@@ -82,6 +84,7 @@ struct Box_Comparator
     }
 };
 
+//Show the image of a single histogram 
 void show_proj(const std::string& title, const vector<int>& histogram)
 {
     Mat proj = Mat::zeros(histogram.size(), 1 + *std::max_element(histogram.begin(), histogram.end()), CV_64FC1);
@@ -234,7 +237,7 @@ bool boxes_v_touching(const Box& lowest, const Box& uppest)
 }
 
 //If 2 boxes are touching
-//TODO i cosi dentro mangiano i grossi
+//TODO qualcosa non va
 bool boxes_touching(const Box& left, const Box& right)
 {
     if (boxes_v_touching(left, right) || boxes_v_touching(right, left))
@@ -458,6 +461,34 @@ int find_line_note(int y, int height, const vector<array<int, 5>>& lines, const 
     return 0x0FFFFFFF;
 }
 
+void multinota(Box box)
+{
+    Box up;
+    Box down;
+    up.rectangle = box.rectangle;
+    down.rectangle = box.rectangle;
+
+    up.rectangle.x = box.rectangle.x;
+    up.rectangle.y = box.rectangle.y;
+    up.rectangle.width = box.rectangle.width;
+    up.rectangle.height = box.rectangle.height/2;
+
+    up.image = box.image(up.rectangle);
+    horizontal_projection(up.image, up.x_proj);
+    vertical_projection(up.image, up.y_proj);
+    show_proj("up", up.x_proj);
+
+    down.rectangle.x = box.rectangle.x;
+    down.rectangle.y = box.rectangle.y + box.rectangle.height;
+    down.rectangle.width = box.rectangle.width;
+    down.rectangle.height = box.rectangle.height/2;
+
+    down.image = box.image(down.rectangle);
+    horizontal_projection(down.image, down.x_proj);
+    vertical_projection(down.image, down.y_proj);
+    show_proj("down", down.x_proj);
+}
+
 music_sheet::music_sheet (const std::string& filename)	
 {
     //Try to read the original colour source image.
@@ -539,7 +570,8 @@ music_sheet::music_sheet (const std::string& filename)
     json_file >> json;
 
     //things in the json
-    string type, key, wich_one, dir;
+    string type, key, dir;
+    music::scale wich_one;
     int num, den;
     
     //things for the for cicle
@@ -555,6 +587,8 @@ music_sheet::music_sheet (const std::string& filename)
         if (static_cast<float>(box.rectangle.width)/box.rectangle.height >= 1.0f && box.rectangle.height > 20)
         {
             type = "multinote";
+            
+            multinota(box);
         }
         else
         {
@@ -584,14 +618,22 @@ music_sheet::music_sheet (const std::string& filename)
                         key = model["key"];
                     }
                     if (type == "alteration")
-                    {   
-                        wich_one = model["wich_one"];
+                    {  
+                        string which_one_ =  model["wich_one"];
+
+                        if (which_one_ == "Diesis") 
+                            wich_one = music::scale::Diesis;
+                        else if (which_one_ == "Natural")
+                            wich_one = music::scale::Natural;
+                        else if (which_one_ == "Bemolle")
+                            wich_one = music::scale::Bemolle;
                     }
                 }
             }
         }
 
         cout << b << ' ' << type;
+        time t(num, den);
         
         if (type == "key")
         {
@@ -599,25 +641,22 @@ music_sheet::music_sheet (const std::string& filename)
         }
         if (type == "alteration")
         {
-            cout << ' ' << wich_one;
             scale scal(wich_one);
         }   
         if (type == "pause")
         {
-            cout << ' ' << num << " / " << den;
-            time t(num, den);
+            pause p(t);
+            cout << ' ' << p;
         }
         if (type == "note")
         {
-            cout << ' ' << num << " / " << den;
             line = find_line_note(box.rectangle.y, box.rectangle.height, lines, dir);
-            cout << ' ' << dir << ' ' << line;
             if (key == "violin")
-                {
-                    note n = violin(line, t, "Natural");
+            {
+                note n = music::clef::violin(line, t, music::scale::Natural);
 
-                    cout << n.basic_note_;
-                }
+                cout << ' ' << n;
+            }
         }
         
         cout << endl;
