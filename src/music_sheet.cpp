@@ -63,7 +63,7 @@ struct Box_Comparator
     }
 
     bool operator()(const Box& lhs, const Box& rhs) const 
-    { 
+    {
         for (auto l: lines)
         {
             bool l_match = box_inside_lines(lhs, l);
@@ -80,7 +80,7 @@ struct Box_Comparator
             }
         }
 
-        return false;
+        return lhs.rectangle.x <= rhs.rectangle.x;
     }
 };
 
@@ -249,14 +249,15 @@ bool boxes_touching(const Box& left, const Box& right)
 }
 
 //Finds the figures and draw a rectangle on them
-vector<Box> find_boxes(Mat boxes_img, const vector<array<int, 5>>& lines)
+vector<Box> find_boxes(Mat boxes_img, vector<array<int, 5>> lines)
 {
     static RNG rng(12385);
     
-    //Final boxes
     Box_Comparator comparator;
     comparator.lines = lines;
     set<Box, Box_Comparator> boxes_set(comparator);
+
+    //Final boxes
     vector<Box> boxes_tmp, boxes;
     
     //This function finds contours in a binary image.
@@ -264,66 +265,95 @@ vector<Box> find_boxes(Mat boxes_img, const vector<array<int, 5>>& lines)
     vector<Vec4i> hierarchy;        //Optional output vector containing information about the image topology.
 
 
-    findContours(boxes_img, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0));
-
+    findContours(255 - boxes_img, contours, hierarchy, RETR_TREE, CHAIN_APPROX_NONE, Point(0, 0));
+    
+    
     //Input vector of a 2D point, the final boxes and the final small images (resize after the contours function)
     vector<vector<Point>> contours_boxes(contours.size());
+    int i=0;
+    
+    if (lines.size() == 0)
+    {
+        Mat cazzo_colorato = boxes_img.clone();
+        cvtColor(cazzo_colorato, cazzo_colorato, COLOR_BGR2BGRA);
+        Scalar color( 255, 0,0 );
 
-    for(int i=1; i<contours.size(); i++) 
+        drawContours(cazzo_colorato, contours, -1, color, LINE_4);
+        imshow("cazzo", cazzo_colorato);
+        i=0;
+    }
+    for(i; i<contours.size(); i++) 
     { 
         //approxPolyDP approximates a curve or a polygon with another curve/polygon with less vertices so that the distance between them is less or equal to the specified precision.
-        approxPolyDP(Mat(contours[i]), contours_boxes[i], 3, true);
+        approxPolyDP(Mat(contours[i]), contours_boxes[i], 3, false);
         
         //boundingRect returns the minimal up-right integer rectangle containing the rotated rectangle
         Box element; 
         element.rectangle = boundingRect(Mat(contours_boxes[i]));
-        boxes_set.insert(element);
+
+        if (lines.size() != 0)
+            boxes_set.insert(element);
+        else boxes.push_back(element);
     }
-
-    //Removing elements that are not inside the sheet
-    std::copy_if(boxes_set.begin(), boxes_set.end(), std::inserter(boxes_tmp, boxes_tmp.end()), std::bind(&Box_Comparator::box_matching, &comparator, std::placeholders::_1));
-
-    // for (auto& element: boxes_set)
-    // {
-    //     Scalar colour = Scalar(0, 255, 0);
-    //     rectangle(boxes_img, element.rectangle.tl(), element.rectangle.br(), colour, 2, 8, 0);
-    // }
-
-    // imshow("tutti",boxes_img);
-
-    Box last = boxes_tmp.front();
-    for (size_t i = 1; i < boxes_tmp.size(); ++i)
+    
+    if (lines.size() != 0)
     {
-        auto& box = boxes_tmp[i];
+        //Removing elements that are not inside the sheet
+        std::copy_if(boxes_set.begin(), boxes_set.end(), std::inserter(boxes_tmp, boxes_tmp.end()), std::bind(&Box_Comparator::box_matching, &comparator, std::placeholders::_1));
 
-        if (boxes_touching(last, box))
+        // for (auto& element: boxes_set)
+        // {
+        //     Scalar colour = Scalar(0, 255, 0);
+        //     rectangle(boxes_img, element.rectangle.tl(), element.rectangle.br(), colour, 2, 8, 0);
+        // }
+
+        // imshow("tutti",boxes_img);
+
+        Box last = boxes_tmp.front();
+        for (size_t i = 1; i < boxes_tmp.size(); ++i)
         {
-            auto y1 = std::max(box.rectangle.y + box.rectangle.height, last.rectangle.y + last.rectangle.height);
-            auto x1 = std::max(box.rectangle.x + box.rectangle.width, last.rectangle.x + last.rectangle.width);
+            auto& box = boxes_tmp[i];
 
-            last.rectangle.x = std::min(last.rectangle.x, box.rectangle.x);
-            last.rectangle.y = std::min(last.rectangle.y, box.rectangle.y);
+            if (boxes_touching(last, box))
+            {
+                auto y1 = std::max(box.rectangle.y + box.rectangle.height, last.rectangle.y + last.rectangle.height);
+                auto x1 = std::max(box.rectangle.x + box.rectangle.width, last.rectangle.x + last.rectangle.width);
 
-            last.rectangle.height = y1 - last.rectangle.y;
-            last.rectangle.width = x1 - last.rectangle.x;
+                last.rectangle.x = std::min(last.rectangle.x, box.rectangle.x);
+                last.rectangle.y = std::min(last.rectangle.y, box.rectangle.y);
+
+                last.rectangle.height = y1 - last.rectangle.y;
+                last.rectangle.width = x1 - last.rectangle.x;
+            }
+            else
+            {
+                last.image = boxes_img(last.rectangle);
+                horizontal_projection(last.image, last.x_proj);
+                
+                //Shows every horizontal projection (of the little boxes)
+                //show_proj(std::to_string(boxes.size()), last.x_proj);
+                
+                vertical_projection(last.image, last.y_proj);
+
+                //Shows every vertical projection (of the little boxes)
+                //show_proj(std::to_string(boxes.size()), last.y_proj);
+
+                if (last.x_proj.size() >1)
+                    boxes.push_back(last);
+                last = box;
+            }
         }
-        else
+    }
+    else
+    {
+        for(auto& box: boxes)
         {
-            last.image = boxes_img(last.rectangle);
-            horizontal_projection(last.image, last.x_proj);
+            box.image = boxes_img(box.rectangle);
             
-            //Shows every horizontal projection (of the little boxes)
-            //show_proj(std::to_string(boxes.size()), last.x_proj);
-            
-            vertical_projection(last.image, last.y_proj);
-
-            //Shows every vertical projection (of the little boxes)
-            //show_proj(std::to_string(boxes.size()), last.y_proj);
-
-            if (last.x_proj.size() >1)
-                boxes.push_back(last);
-            last = box;
+            horizontal_projection(box.image, box.x_proj);
+            vertical_projection(box.image, box.y_proj);
         }
+        
     }
 
     return boxes;
@@ -461,32 +491,94 @@ int find_line_note(int y, int height, const vector<array<int, 5>>& lines, const 
     return 0x0FFFFFFF;
 }
 
-void multinota(Box box)
+size_t count_peaks(const vector<int>& projection)
 {
-    Box up;
-    Box down;
+    int last = projection[0];
+    size_t peaks = 0;
+
+    for (size_t i = 1; i < projection.size(); ++i)
+    {
+        if (last > 0 && projection[i] == 0)
+        {
+            peaks++;
+        }
+
+        last = projection[i];
+    }
+
+    return peaks;
+}
+
+vector<Box> multinota(Box box)
+{
+    Box up, down;
+
+    Mat image; 
+    
+    vector<array<int, 5>> lines;
+
     up.rectangle = box.rectangle;
     down.rectangle = box.rectangle;
 
-    up.rectangle.x = box.rectangle.x;
-    up.rectangle.y = box.rectangle.y;
-    up.rectangle.width = box.rectangle.width;
-    up.rectangle.height = box.rectangle.height/2;
+    up.rectangle.x = 0;
+    up.rectangle.y = 0;
+    up.rectangle.height /= 2;
 
     up.image = box.image(up.rectangle);
+    up.rectangle.x = box.rectangle.x;
+    up.rectangle.y = box.rectangle.y;
+
     horizontal_projection(up.image, up.x_proj);
     vertical_projection(up.image, up.y_proj);
-    show_proj("up", up.x_proj);
+    
 
-    down.rectangle.x = box.rectangle.x;
-    down.rectangle.y = box.rectangle.y + box.rectangle.height;
-    down.rectangle.width = box.rectangle.width;
-    down.rectangle.height = box.rectangle.height/2;
+    image = up.image;
+    bool balls_are_up = (count_peaks(up.y_proj) != 1);
 
-    down.image = box.image(down.rectangle);
-    horizontal_projection(down.image, down.x_proj);
-    vertical_projection(down.image, down.y_proj);
-    show_proj("down", down.x_proj);
+    if (!balls_are_up)
+    {
+        show_proj("up", up.y_proj);
+        down.rectangle.x = 0;
+        down.rectangle.y = up.rectangle.height;
+        down.rectangle.height /= 2;
+
+        down.image = box.image(down.rectangle);
+        down.rectangle.x = box.rectangle.x;
+        down.rectangle.y += box.rectangle.y;
+
+        horizontal_projection(down.image, down.x_proj);
+        vertical_projection(down.image, down.y_proj);
+
+        show_proj("down", down.y_proj);
+
+        image = down.image;
+    }
+
+    // auto up_peaks = count_peaks(up.y_proj);
+    // auto down_peaks = count_peaks(down.y_proj);
+    
+    // Box notes = (up_peaks == 1) ? down : up;
+    // auto peaks = std::max(up_peaks, down_peaks);
+
+    // vector<Box> notes_;
+    // for (size_t i = 0; i < peaks; ++i)
+    // {
+    //     Box note = box;
+    //     note.rectangle.x;
+    // }
+
+    imshow("ciao", image);
+
+    vector<Box> boxes = find_boxes(image, lines);
+
+    for(auto& boxx: boxes) 
+    {
+        boxx.rectangle.x += balls_are_up ? up.rectangle.x : down.rectangle.x;
+
+        boxx.rectangle.y += balls_are_up ? up.rectangle.y : down.rectangle.y;
+    }
+
+    return boxes;
 }
 
 music_sheet::music_sheet (const std::string& filename)	
@@ -588,7 +680,12 @@ music_sheet::music_sheet (const std::string& filename)
         {
             type = "multinote";
             
-            multinota(box);
+            auto piselli = multinota(box);
+            for(auto& pipo: piselli)
+            {
+                Scalar colour = Scalar(0, 0, 255);
+                rectangle(boxes_img, pipo.rectangle.tl(), pipo.rectangle.br(), colour, 2, 8, 0);
+            }
         }
         else
         {
@@ -663,6 +760,8 @@ music_sheet::music_sheet (const std::string& filename)
 
         ++b;
     }
+
+    imshow("Boxes", boxes_img); 
 
     //TODO rimuovere
     waitKey();
