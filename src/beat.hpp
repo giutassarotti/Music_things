@@ -8,6 +8,7 @@
 #include "time.hpp"
 #include "clef.hpp"
 #include "scale.hpp"
+#include "basic_note.hpp"
 
 namespace music
 {
@@ -17,17 +18,20 @@ namespace music
 			time time_;
 			clef clef_;
 			std::vector <scale> scale_;
-			std::vector <std::unique_ptr<figure>> figures;
-
+			
 			void add_figure(std::unique_ptr<figure> figure);
 
 		public:
-			beat(time t, clef c, scale s);
+			std::vector <std::unique_ptr<figure>> figures;
+			beat(time t, clef c, std::vector <scale> s);
 			bool control_himself();
 
 			void add_figure(const note& figure);
 			void add_figure(const pause& figure);
 	};
 }
+
+//Prints the note
+std::ostream& operator<<(std::ostream& out, const music::beat& beat);
 
 #endif

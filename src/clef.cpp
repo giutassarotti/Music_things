@@ -32,7 +32,7 @@ note clef::violin(short position, time length, scale scal)
     //TODO note fori dal balcone
     //TODO do1 do2 do-tanti
 
-    note nota(notes[position-1], length, scal);
+    note nota(notes[position+1], length, scal);
 
     return nota;
 }

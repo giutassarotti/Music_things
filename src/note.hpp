@@ -5,21 +5,13 @@
 
 #include "time.hpp"
 #include "scale.hpp"
+#include "basic_note.hpp"
+
+using music::basic_note;
 
 namespace music
 {
-	enum class basic_note
-    {
-        DO,
-        RE,
-        MI,
-        FA,
-        SOL,
-        LA,
-        SI
-    };
-
-    struct figure
+	struct figure
     {
         time length;				//lunghezza
 
@@ -41,9 +33,6 @@ namespace music
         pause(time l);
     };
 }
-
-//Prints the stupid enum class for basic_notes
-std::ostream& operator<<(std::ostream& out, const music::basic_note note);
 
 //Prints the note
 std::ostream& operator<<(std::ostream& out, const music::note& note);

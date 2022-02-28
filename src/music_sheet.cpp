@@ -20,6 +20,7 @@
 #include "note.hpp"
 #include "scale.hpp"
 #include "clef.hpp"
+#include "beat.hpp"
 
 using namespace cv;
 
@@ -206,7 +207,7 @@ void remove_staff(Mat& img, int pixel)
                 }
             }
             
-            if(sum/n > 140) 
+            if(sum/n > 142) 
             {
                 img.at<unsigned char>(pixel, i) = 255; 
             }
@@ -223,7 +224,7 @@ bool boxes_h_touching(const Box& left, const Box& right)
 
     //cout << left.rectangle.x << ' ' << x1 << ' ' << right.rectangle.x << ' ' << right.rectangle.width << ' ' << (x1 >= right.rectangle.x && x1 <= (right.rectangle.x + right.rectangle.width)) << '\n';
 
-    return (x1 > right.rectangle.x) && (left.rectangle.x < right.rectangle.x);
+    return (x1 >= right.rectangle.x) && (left.rectangle.x <= right.rectangle.x);
 }
 
 //If 2 boxes are touching vertically
@@ -233,7 +234,7 @@ bool boxes_v_touching(const Box& lowest, const Box& uppest)
 
     //cout << "v " << lowest.rectangle.x << ' ' << lowest.rectangle.y << ' ' << y1 << ' ' << uppest.rectangle.y << ' ' << uppest.rectangle.height << ' ' << (lowest.rectangle.y >= uppest.rectangle.y && y1 >= lowest.rectangle.y) << '\n';
 
-    return (y1 > lowest.rectangle.y) && (lowest.rectangle.y > uppest.rectangle.y);
+    return (y1 >= lowest.rectangle.y) && (lowest.rectangle.y >= uppest.rectangle.y);
 }
 
 //If 2 boxes are touching
@@ -270,19 +271,8 @@ vector<Box> find_boxes(Mat boxes_img, vector<array<int, 5>> lines)
     
     //Input vector of a 2D point, the final boxes and the final small images (resize after the contours function)
     vector<vector<Point>> contours_boxes(contours.size());
-    int i=0;
     
-    if (lines.size() == 0)
-    {
-        Mat cazzo_colorato = boxes_img.clone();
-        cvtColor(cazzo_colorato, cazzo_colorato, COLOR_BGR2BGRA);
-        Scalar color( 255, 0,0 );
-
-        drawContours(cazzo_colorato, contours, -1, color, LINE_4);
-        imshow("cazzo", cazzo_colorato);
-        i=0;
-    }
-    for(i; i<contours.size(); i++) 
+    for(int i=0; i<contours.size(); i++) 
     { 
         //approxPolyDP approximates a curve or a polygon with another curve/polygon with less vertices so that the distance between them is less or equal to the specified precision.
         approxPolyDP(Mat(contours[i]), contours_boxes[i], 3, false);
@@ -291,9 +281,7 @@ vector<Box> find_boxes(Mat boxes_img, vector<array<int, 5>> lines)
         Box element; 
         element.rectangle = boundingRect(Mat(contours_boxes[i]));
 
-        if (lines.size() != 0)
-            boxes_set.insert(element);
-        else boxes.push_back(element);
+        boxes_set.insert(element);
     }
     
     if (lines.size() != 0)
@@ -335,6 +323,26 @@ vector<Box> find_boxes(Mat boxes_img, vector<array<int, 5>> lines)
                 
                 vertical_projection(last.image, last.y_proj);
 
+                //TODO riordinare
+                if (boxes.size() > 0 && boxes_touching(last, boxes.back()))
+                {
+                    auto y1 = std::max(boxes.back().rectangle.y + boxes.back().rectangle.height, last.rectangle.y + last.rectangle.height);
+                    auto x1 = std::max(boxes.back().rectangle.x + boxes.back().rectangle.width, last.rectangle.x + last.rectangle.width);
+
+                    last.rectangle.x = std::min(last.rectangle.x, boxes.back().rectangle.x);
+                    last.rectangle.y = std::min(last.rectangle.y, boxes.back().rectangle.y);
+
+                    last.rectangle.height = y1 - last.rectangle.y;
+                    last.rectangle.width = x1 - last.rectangle.x;
+
+                    last.image = boxes_img(last.rectangle);
+
+                    horizontal_projection(last.image, last.x_proj);
+                    vertical_projection(last.image, last.y_proj);
+
+                    boxes.pop_back();
+                }
+
                 //Shows every vertical projection (of the little boxes)
                 //show_proj(std::to_string(boxes.size()), last.y_proj);
 
@@ -346,12 +354,15 @@ vector<Box> find_boxes(Mat boxes_img, vector<array<int, 5>> lines)
     }
     else
     {
-        for(auto& box: boxes)
+        for(auto box: boxes_set)
         {
             box.image = boxes_img(box.rectangle);
             
             horizontal_projection(box.image, box.x_proj);
             vertical_projection(box.image, box.y_proj);
+
+            if (box.x_proj.size() > (boxes_img.cols/100.0)*5)
+                boxes.push_back(box);
         }
         
     }
@@ -509,7 +520,7 @@ size_t count_peaks(const vector<int>& projection)
     return peaks;
 }
 
-vector<Box> multinota(Box box)
+vector<Box> multinota(Box box, string& dir)
 {
     Box up, down;
 
@@ -535,9 +546,11 @@ vector<Box> multinota(Box box)
     image = up.image;
     bool balls_are_up = (count_peaks(up.y_proj) != 1);
 
+    dir = "down";
+
     if (!balls_are_up)
     {
-        show_proj("up", up.y_proj);
+        dir = "up";
         down.rectangle.x = 0;
         down.rectangle.y = up.rectangle.height;
         down.rectangle.height /= 2;
@@ -548,8 +561,6 @@ vector<Box> multinota(Box box)
 
         horizontal_projection(down.image, down.x_proj);
         vertical_projection(down.image, down.y_proj);
-
-        show_proj("down", down.y_proj);
 
         image = down.image;
     }
@@ -566,8 +577,6 @@ vector<Box> multinota(Box box)
     //     Box note = box;
     //     note.rectangle.x;
     // }
-
-    imshow("ciao", image);
 
     vector<Box> boxes = find_boxes(image, lines);
 
@@ -597,12 +606,15 @@ music_sheet::music_sheet (const std::string& filename)
     imshow("B&W", gray_img);
     
     //Applies a fixed-level threshold to each array element.
+    threshold(gray_img, gray_img, 213, 255, THRESH_BINARY);
     
     //fra martino
     //adaptiveThreshold(gray_img, gray_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 45, 12);
 
     //prova2
-    adaptiveThreshold(gray_img, gray_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 95, 12);
+    //adaptiveThreshold(gray_img, gray_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 95, 12);
+    // threshold(gray_img, gray_img, 0, 255, THRESH_TRIANGLE | THRESH_BINARY);
+    // threshold(gray_img, gray_img, 0, 255, THRESH_OTSU | THRESH_BINARY);
     
     //Shows modified b&w image
     //imshow("Black and White with adjustments", gray_img);
@@ -615,7 +627,7 @@ music_sheet::music_sheet (const std::string& filename)
     vector<array<int, 5>> lines = find_lines(red_lines_img, nolines_img);
 
     //Shows the image without lines
-    //imshow("Without lines", nolines_img);
+    imshow("Without lines", nolines_img);
     //Shows the found lines (in red)
     //imshow("Red Found Lines", red_lines_img);
     
@@ -679,12 +691,21 @@ music_sheet::music_sheet (const std::string& filename)
         if (static_cast<float>(box.rectangle.width)/box.rectangle.height >= 1.0f && box.rectangle.height > 20)
         {
             type = "multinote";
+
+            cout << b << ' ' << type << '\n';
             
-            auto piselli = multinota(box);
-            for(auto& pipo: piselli)
+            auto lil_notes = multinota(box, dir);
+            for(auto& lil_note: lil_notes)
             {
                 Scalar colour = Scalar(0, 0, 255);
-                rectangle(boxes_img, pipo.rectangle.tl(), pipo.rectangle.br(), colour, 2, 8, 0);
+                rectangle(boxes_img, lil_note.rectangle.tl(), lil_note.rectangle.br(), colour, 2, 8, 0);
+
+                line = find_line_note(lil_note.rectangle.y, lil_note.rectangle.height, lines, dir);
+                time t(1,8);
+                
+                note n = music::clef::violin(line, t, music::scale::Natural);
+
+                cout << '\t' << n << '\n';
             }
         }
         else
@@ -701,7 +722,7 @@ music_sheet::music_sheet (const std::string& filename)
                     min = distance_;
                     type = model["type"];
                     
-                    if (type == "note" || type == "pause")
+                    if (type == "note" || type == "pause" || type == "time")
                     {   
                         num = model["time"]["num"];
                         den = model["time"]["den"];
@@ -727,36 +748,41 @@ music_sheet::music_sheet (const std::string& filename)
                     }
                 }
             }
-        }
 
-        cout << b << ' ' << type;
-        time t(num, den);
-        
-        if (type == "key")
-        {
-            cout << ' ' << key;
-        }
-        if (type == "alteration")
-        {
-            scale scal(wich_one);
-        }   
-        if (type == "pause")
-        {
-            pause p(t);
-            cout << ' ' << p;
-        }
-        if (type == "note")
-        {
-            line = find_line_note(box.rectangle.y, box.rectangle.height, lines, dir);
-            if (key == "violin")
+            cout << b << ' ' << type;
+            time t(num, den);
+            
+            if (type == "key")
             {
-                note n = music::clef::violin(line, t, music::scale::Natural);
-
-                cout << ' ' << n;
+                cout << ' ' << key;
             }
+            if (type == "alteration")
+            {
+                scale scal(wich_one);
+                cout << ' ' << wich_one;
+            }   
+            if (type == "pause")
+            {
+                pause p(t);
+                cout << ' ' << p;
+            }
+            if (type == "time")
+            {
+                cout << ' ' << t;
+            }
+            if (type == "note")
+            {
+                line = find_line_note(box.rectangle.y, box.rectangle.height, lines, dir);
+                if (key == "violin")
+                {
+                    note n = music::clef::violin(line, t, music::scale::Natural);
+
+                    cout << ' ' << n;
+                }
+            }
+            
+            cout << endl;
         }
-        
-        cout << endl;
 
         ++b;
     }
