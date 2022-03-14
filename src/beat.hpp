@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <memory>
+#include <utility>
+#include <string>
 
 #include "note.hpp"
 #include "time.hpp"
@@ -15,15 +17,15 @@ namespace music
 	struct beat
 	{
 		private:
-			time time_;
-			clef clef_;
-			std::vector <scale> scale_;
-			
 			void add_figure(std::unique_ptr<figure> figure);
 
 		public:
+			time time_;
+			std::vector <std::pair<scale,basic_note>> scale_;
+			std::string clef;
 			std::vector <std::unique_ptr<figure>> figures;
-			beat(time t, clef c, std::vector <scale> s);
+			beat(time t, std::string c, std::vector <std::pair<scale,basic_note>> s);
+			beat() = default;
 			bool control_himself();
 
 			void add_figure(const note& figure);

@@ -36,3 +36,24 @@ note clef::violin(short position, time length, scale scal)
 
     return nota;
 }
+
+basic_note clef::violin_alt(short position)
+{
+    //From the lowest line to the uppest line
+    std::vector <basic_note> notes = 
+    {
+        basic_note::SOL,
+        basic_note::FA,
+        basic_note::MI,
+        basic_note::RE,
+        basic_note::DO,
+        basic_note::SI,
+        basic_note::LA,
+        basic_note::SOL,
+        basic_note::FA, 
+        basic_note::MI,
+        basic_note::RE
+    };
+
+    return notes[position+1];
+}

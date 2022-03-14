@@ -16,6 +16,7 @@
 #include <functional>
 #include <numeric>
 #include <limits>
+#include <utility>
 
 #include "note.hpp"
 #include "scale.hpp"
@@ -238,7 +239,6 @@ bool boxes_v_touching(const Box& lowest, const Box& uppest)
 }
 
 //If 2 boxes are touching
-//TODO qualcosa non va
 bool boxes_touching(const Box& left, const Box& right)
 {
     if (boxes_v_touching(left, right) || boxes_v_touching(right, left))
@@ -323,6 +323,9 @@ vector<Box> find_boxes(Mat boxes_img, vector<array<int, 5>> lines)
                 
                 vertical_projection(last.image, last.y_proj);
 
+                //Shows every vertical projection (of the little boxes)
+                //show_proj(std::to_string(boxes.size()), last.y_proj);
+
                 //TODO riordinare
                 if (boxes.size() > 0 && boxes_touching(last, boxes.back()))
                 {
@@ -342,9 +345,6 @@ vector<Box> find_boxes(Mat boxes_img, vector<array<int, 5>> lines)
 
                     boxes.pop_back();
                 }
-
-                //Shows every vertical projection (of the little boxes)
-                //show_proj(std::to_string(boxes.size()), last.y_proj);
 
                 if (last.x_proj.size() >1)
                     boxes.push_back(last);
@@ -449,13 +449,28 @@ vector<array<int, 5>> find_lines(Mat red_lines_img, Mat nolines_img)
     return lines;
 }
 
-int find_line_note(int y, int height, const vector<array<int, 5>>& lines, const string& dir)
+int find_line_alt(int y, int height, const vector<array<int, 5>>& lines)
 {
     //y is the  rect's y of the top left corner
 
-    //no
-    //unsigned max = *max_element(x_proj.begin(), x_proj.end());
-    //unsigned position = y + max;
+    int where_it_is = y + height/2;
+    
+    for(auto& l: lines)
+    {
+        float interline_space = l[4] - l[3];
+        for(int i = 0; i<4; i++)
+        {
+            if (abs(l[i] - where_it_is) < 5)
+                return i*2;
+            if (abs(l[i] - where_it_is + interline_space) < 5)
+                return i*2 - 1;
+        }
+    }
+}
+
+int find_line_note(int y, int height, const vector<array<int, 5>>& lines, const string& dir)
+{
+    //y is the  rect's y of the top left corner
 
     //the ball is down, watching up
     if (dir == "up")
@@ -465,7 +480,7 @@ int find_line_note(int y, int height, const vector<array<int, 5>>& lines, const 
         for(auto& l: lines)
         {
             float interline_space = l[4] - l[3];
-            for(int i = 0; i<5; i++)
+            for(int i = 0; i<4; i++)
             {
                 if (abs(l[i] - where_it_is) < 5) //linea sopra
                     return i*2 - 1;
@@ -542,7 +557,6 @@ vector<Box> multinota(Box box, string& dir)
     horizontal_projection(up.image, up.x_proj);
     vertical_projection(up.image, up.y_proj);
     
-
     image = up.image;
     bool balls_are_up = (count_peaks(up.y_proj) != 1);
 
@@ -564,20 +578,7 @@ vector<Box> multinota(Box box, string& dir)
 
         image = down.image;
     }
-
-    // auto up_peaks = count_peaks(up.y_proj);
-    // auto down_peaks = count_peaks(down.y_proj);
     
-    // Box notes = (up_peaks == 1) ? down : up;
-    // auto peaks = std::max(up_peaks, down_peaks);
-
-    // vector<Box> notes_;
-    // for (size_t i = 0; i < peaks; ++i)
-    // {
-    //     Box note = box;
-    //     note.rectangle.x;
-    // }
-
     vector<Box> boxes = find_boxes(image, lines);
 
     for(auto& boxx: boxes) 
@@ -603,7 +604,7 @@ music_sheet::music_sheet (const std::string& filename)
     Mat gray_img;
     cvtColor(colour_img, gray_img, COLOR_RGB2GRAY);
     //Shows original b&w image
-    imshow("B&W", gray_img);
+    //imshow("B&W", gray_img);
     
     //Applies a fixed-level threshold to each array element.
     threshold(gray_img, gray_img, 213, 255, THRESH_BINARY);
@@ -613,11 +614,11 @@ music_sheet::music_sheet (const std::string& filename)
 
     //prova2
     //adaptiveThreshold(gray_img, gray_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 95, 12);
-    // threshold(gray_img, gray_img, 0, 255, THRESH_TRIANGLE | THRESH_BINARY);
-    // threshold(gray_img, gray_img, 0, 255, THRESH_OTSU | THRESH_BINARY);
+    //threshold(gray_img, gray_img, 0, 255, THRESH_TRIANGLE | THRESH_BINARY);
+    //threshold(gray_img, gray_img, 0, 255, THRESH_OTSU | THRESH_BINARY);
     
     //Shows modified b&w image
-    //imshow("Black and White with adjustments", gray_img);
+    imshow("Black and White with adjustments", gray_img);
 
     //I'll need a copy for a test (finding lines) and an image without lines, without modify the original
     Mat red_lines_img = colour_img.clone();
@@ -627,7 +628,7 @@ music_sheet::music_sheet (const std::string& filename)
     vector<array<int, 5>> lines = find_lines(red_lines_img, nolines_img);
 
     //Shows the image without lines
-    imshow("Without lines", nolines_img);
+    //imshow("Without lines", nolines_img);
     //Shows the found lines (in red)
     //imshow("Red Found Lines", red_lines_img);
     
@@ -648,13 +649,13 @@ music_sheet::music_sheet (const std::string& filename)
         rectangle(boxes_img, box.rectangle.tl(), box.rectangle.br(), colour, 2, 8, 0);
         
         //Shows the single match
-        //imshow(std::to_string(i), boxes_img(box.rectangle));
-        //++i;
+        // imshow(std::to_string(i), boxes_img(box.rectangle));
+        // ++i;
     }
     //Shows the image with rectangles
     imshow("Boxes", boxes_img); 
 
-    // Prints the histogram, for taking the goods and use them later
+    //Prints the histogram, for taking the goods and use them later
     // int y = 0;
     // for(auto& box: boxes)
     // {
@@ -684,6 +685,11 @@ music_sheet::music_sheet (const std::string& filename)
 
     int line;
 
+    std::vector <std::pair<music::scale, music::basic_note>> key_scale;
+
+    std::vector <music::beat> beats;
+    beats.emplace_back();
+
     for(auto& box: boxes) 
     {
         min = std::numeric_limits<float>::max();
@@ -697,8 +703,8 @@ music_sheet::music_sheet (const std::string& filename)
             auto lil_notes = multinota(box, dir);
             for(auto& lil_note: lil_notes)
             {
-                Scalar colour = Scalar(0, 0, 255);
-                rectangle(boxes_img, lil_note.rectangle.tl(), lil_note.rectangle.br(), colour, 2, 8, 0);
+                //Scalar colour = Scalar(0, 0, 255);
+                //rectangle(boxes_img, lil_note.rectangle.tl(), lil_note.rectangle.br(), colour, 2, 8, 0);
 
                 line = find_line_note(lil_note.rectangle.y, lil_note.rectangle.height, lines, dir);
                 time t(1,8);
@@ -752,23 +758,38 @@ music_sheet::music_sheet (const std::string& filename)
             cout << b << ' ' << type;
             time t(num, den);
             
+            if (type == "beat")
+            {
+                beats.back().scale_ = key_scale;
+                beats.emplace_back();
+            }
             if (type == "key")
             {
                 cout << ' ' << key;
+                key_scale.clear();
+                beats.back().clef = key;
             }
             if (type == "alteration")
             {
                 scale scal(wich_one);
+                line = find_line_alt(box.rectangle.y, box.rectangle.height, lines);
+                
+                if (key == "violin")
+                {
+                    key_scale.emplace_back(wich_one, music::clef::violin_alt(line));
+                }
                 cout << ' ' << wich_one;
             }   
             if (type == "pause")
             {
                 pause p(t);
                 cout << ' ' << p;
+                beats.back().add_figure(p);
             }
             if (type == "time")
             {
                 cout << ' ' << t;
+                beats.back().time_ = t;
             }
             if (type == "note")
             {
@@ -778,7 +799,9 @@ music_sheet::music_sheet (const std::string& filename)
                     note n = music::clef::violin(line, t, music::scale::Natural);
 
                     cout << ' ' << n;
+                    beats.back().add_figure(n);
                 }
+                
             }
             
             cout << endl;

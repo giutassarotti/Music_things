@@ -28,6 +28,8 @@ namespace music
             
             static note violin(short position, time length, scale scal);
             //note bass();
+
+            static basic_note violin_alt(short position);
 	};
 }
 

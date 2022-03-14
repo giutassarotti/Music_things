@@ -3,8 +3,8 @@
 using music::beat;
 using music::time;
 
-beat::beat (time t, clef c, std::vector <scale> s):
-	time_{t}, clef_{c}, scale_{s}
+beat::beat (time t, std::string c, std::vector <std::pair<scale,basic_note>> s):
+	time_{t}, clef{c}, scale_{s}
 {}
 
 bool beat::control_himself ()
